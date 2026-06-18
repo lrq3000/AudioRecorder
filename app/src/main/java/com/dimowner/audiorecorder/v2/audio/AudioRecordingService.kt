@@ -94,6 +94,8 @@ class AudioRecordingService : Service() {
         private const val ACTION_START_RECORDING = "com.dimowner.audiorecorder.ACTION_START_RECORDING"
         private const val ACTION_PAUSE_RESUME_RECORDING = "com.dimowner.audiorecorder.ACTION_PAUSE_RESUME_RECORDING"
         private const val ACTION_STOP_RECORDING = "com.dimowner.audiorecorder.ACTION_STOP_RECORDING"
+        private const val EXTRA_STARTED_FROM_FLOATING_OVERLAY =
+            "com.dimowner.audiorecorder.EXTRA_STARTED_FROM_FLOATING_OVERLAY"
 
         private const val EXTRA_PROJECTION_RESULT_CODE = "extra_projection_result_code"
         private const val EXTRA_PROJECTION_DATA = "extra_projection_data"
@@ -111,6 +113,7 @@ class AudioRecordingService : Service() {
             context: Context,
             projectionResultCode: Int = Activity.RESULT_CANCELED,
             projectionData: Intent? = null,
+            startedFromFloatingOverlay: Boolean = false,
         ) {
             val intent = Intent(context, AudioRecordingService::class.java).apply {
                 action = ACTION_START_RECORDING
@@ -118,6 +121,7 @@ class AudioRecordingService : Service() {
                     putExtra(EXTRA_PROJECTION_RESULT_CODE, projectionResultCode)
                     putExtra(EXTRA_PROJECTION_DATA, projectionData)
                 }
+                putExtra(EXTRA_STARTED_FROM_FLOATING_OVERLAY, startedFromFloatingOverlay)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
@@ -235,6 +239,9 @@ class AudioRecordingService : Service() {
      */
     private var lastAvailableSpaceCheckTime: Long = 0L
 
+    /** True only for the current recording session if it was initiated by the overlay button. */
+    private var currentRecordingStartedFromFloatingOverlay: Boolean = false
+
     inner class ServiceBinder : Binder() {
         fun getService(): AudioRecordingService = this@AudioRecordingService
     }
@@ -263,6 +270,10 @@ class AudioRecordingService : Service() {
                 // it can only be created once the service is foreground with the mediaProjection
                 // type (enforced from Android 14), hence this ordering.
                 val useSystemAudio = isSystemAudioSelected() && intent.hasProjectionConsent()
+                currentRecordingStartedFromFloatingOverlay = intent.getBooleanExtra(
+                    EXTRA_STARTED_FROM_FLOATING_OVERLAY,
+                    false,
+                )
                 // Must call startForeground() synchronously before any async work
                 // to satisfy the foreground service contract and avoid ANR.
                 startForegroundWithNotification(withMediaProjection = useSystemAudio)
@@ -886,6 +897,7 @@ class AudioRecordingService : Service() {
                             emitEvent(AudioRecordingServiceEvent.RecordingStopped(
                                 recordId = recordedRecordId,
                                 recordName = record.name,
+                                startedFromFloatingOverlay = currentRecordingStartedFromFloatingOverlay,
                             ))
                             decodeRecord(
                                 recordId = recordUpdated.id,
@@ -970,6 +982,7 @@ class AudioRecordingService : Service() {
         recordingAmplitudes.clear()
         totalRecordingSampleCount = 0
         recordingFullDataBuffer.reset()
+        currentRecordingStartedFromFloatingOverlay = false
         _recordingState.value = RecordingServiceState()
         stopNotificationUpdates()
         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -1283,5 +1296,9 @@ sealed class AudioRecordingServiceEvent {
      * Emitted after the recording file has been successfully saved and
      * [prefs.activeRecordId] has been set to [recordId].
      */
-    data class RecordingStopped(val recordId: Long, val recordName: String?) : AudioRecordingServiceEvent()
+    data class RecordingStopped(
+        val recordId: Long,
+        val recordName: String?,
+        val startedFromFloatingOverlay: Boolean = false,
+    ) : AudioRecordingServiceEvent()
 }

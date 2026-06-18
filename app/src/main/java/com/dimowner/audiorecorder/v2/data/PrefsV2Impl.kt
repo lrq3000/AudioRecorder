@@ -173,6 +173,46 @@ class PrefsV2Impl @Inject internal constructor(@ApplicationContext context: Cont
             }
         }
 
+    override var isFloatingRecorderOverlayEnabled: Boolean
+        get() = sharedPreferences.getBoolean(PREF_KEY_FLOATING_RECORDER_OVERLAY_ENABLED, false)
+        set(value) {
+            sharedPreferences.edit {
+                putBoolean(PREF_KEY_FLOATING_RECORDER_OVERLAY_ENABLED, value)
+            }
+        }
+
+    override var floatingRecorderOverlayX: Int
+        get() = sharedPreferences.getInt(PREF_KEY_FLOATING_RECORDER_OVERLAY_X, -1)
+        set(value) {
+            sharedPreferences.edit {
+                putInt(PREF_KEY_FLOATING_RECORDER_OVERLAY_X, value)
+            }
+        }
+
+    override var floatingRecorderOverlayY: Int
+        get() = sharedPreferences.getInt(PREF_KEY_FLOATING_RECORDER_OVERLAY_Y, -1)
+        set(value) {
+            sharedPreferences.edit {
+                putInt(PREF_KEY_FLOATING_RECORDER_OVERLAY_Y, value)
+            }
+        }
+
+    override var floatingRecorderRenameOverlayX: Int
+        get() = sharedPreferences.getInt(PREF_KEY_FLOATING_RECORDER_RENAME_OVERLAY_X, -1)
+        set(value) {
+            sharedPreferences.edit {
+                putInt(PREF_KEY_FLOATING_RECORDER_RENAME_OVERLAY_X, value)
+            }
+        }
+
+    override var floatingRecorderRenameOverlayY: Int
+        get() = sharedPreferences.getInt(PREF_KEY_FLOATING_RECORDER_RENAME_OVERLAY_Y, -1)
+        set(value) {
+            sharedPreferences.edit {
+                putInt(PREF_KEY_FLOATING_RECORDER_RENAME_OVERLAY_Y, value)
+            }
+        }
+
     override var recordsSortOrder: SortOrder
         get() = sharedPreferences.getString(
             PREF_KEY_RECORDS_SORT_ORDER,
@@ -358,5 +398,13 @@ class PrefsV2Impl @Inject internal constructor(@ApplicationContext context: Cont
         private const val PREF_KEY_IS_LOCAL_STORAGE_INFO_SHOWN = "pref_key_is_local_storage_info_shown"
         private const val PREF_KEY_CUSTOM_NAME_FORMAT = "pref_key_custom_name_format"
         private const val PREF_KEY_ALWAYS_USE_BLUETOOTH_MIC = "pref_key_always_use_bluetooth_mic"
+        private const val PREF_KEY_FLOATING_RECORDER_OVERLAY_ENABLED =
+            "pref_key_floating_recorder_overlay_enabled"
+        private const val PREF_KEY_FLOATING_RECORDER_OVERLAY_X = "pref_key_floating_recorder_overlay_x"
+        private const val PREF_KEY_FLOATING_RECORDER_OVERLAY_Y = "pref_key_floating_recorder_overlay_y"
+        private const val PREF_KEY_FLOATING_RECORDER_RENAME_OVERLAY_X =
+            "pref_key_floating_recorder_rename_overlay_x"
+        private const val PREF_KEY_FLOATING_RECORDER_RENAME_OVERLAY_Y =
+            "pref_key_floating_recorder_rename_overlay_y"
     }
 }
