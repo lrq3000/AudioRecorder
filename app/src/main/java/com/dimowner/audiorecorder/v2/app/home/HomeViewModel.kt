@@ -68,6 +68,7 @@ import com.dimowner.audiorecorder.v2.audio.isOutOfSpace
 import com.dimowner.audiorecorder.v2.audio.RecordingServiceState
 import com.dimowner.audiorecorder.v2.audio.RecordingState
 import com.dimowner.audiorecorder.v2.audio.readDescription
+import com.dimowner.audiorecorder.v2.audio.recordingStoppedRenamePolicy
 import com.dimowner.audiorecorder.v2.data.FileDataSource
 import com.dimowner.audiorecorder.v2.data.PrefsV2
 import com.dimowner.audiorecorder.v2.data.RecordsDataSource
@@ -428,7 +429,7 @@ class HomeViewModel @Inject constructor(
                         handleRecordingStopped(
                             event.recordId,
                             event.recordName,
-                            event.startedFromFloatingOverlay,
+                            event.stoppedFromFloatingOverlay,
                         )
                     }
                     is AudioRecordingServiceEvent.NewRecordingPartStarted -> {
@@ -502,13 +503,18 @@ class HomeViewModel @Inject constructor(
     private suspend fun handleRecordingStopped(
         recordedRecordId: Long,
         recordName: String?,
-        startedFromFloatingOverlay: Boolean,
+        stoppedFromFloatingOverlay: Boolean,
     ) {
         withContext(ioDispatcher) {
             if (recordedRecordId >= 0) {
                 if (_state.value.isDeleteRecordingProgressRequested) {
                     moveRecordToRecycle(recordedRecordId, false)
-                } else if (prefs.askToRenameAfterRecordingStopped && !startedFromFloatingOverlay) {
+                } else if (recordingStoppedRenamePolicy(
+                        askToRenameAfterRecordingStopped = prefs.askToRenameAfterRecordingStopped,
+                        recordId = recordedRecordId,
+                        stoppedFromFloatingOverlay = stoppedFromFloatingOverlay,
+                    ).showInAppRenameDialog
+                ) {
                     updateState()
                     val record = recordsDataSource.getRecord(recordedRecordId)
                     withContext(mainDispatcher) {
