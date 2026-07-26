@@ -99,8 +99,8 @@ internal class SettingsViewModel @Inject constructor(
             isFloatingRecorderOverlayEnabled = prefs.isFloatingRecorderOverlayEnabled,
             isShowRenameDialog = prefs.askToRenameAfterRecordingStopped,
             isRecordingSettingEditable = true,
-            selectedNameFormat = prefs.settingNamingFormat.toNameFormatItem(),
-            nameFormats = makeNameFormats(),
+            selectedNameFormat = prefs.settingNamingFormat.toNameFormatItem(prefs.customNameFormat),
+            nameFormats = makeNameFormats(prefs.customNameFormat),
             recordingSettings = RecordingFormat.entries.toList().mapIndexed { index, format ->
                 RecordingSetting(
                     recordingFormat = ChipItem(
@@ -236,6 +236,15 @@ internal class SettingsViewModel @Inject constructor(
     fun setNameFormat(value: NameFormatItem) {
         prefs.settingNamingFormat = value.nameFormat
         _state.value = _state.value.copy(selectedNameFormat = value)
+    }
+
+    /** Re-reads the name format from preferences, where the name format constructor stores it. */
+    private fun refreshNameFormat() {
+        val customTokens = prefs.customNameFormat
+        _state.value = _state.value.copy(
+            selectedNameFormat = prefs.settingNamingFormat.toNameFormatItem(customTokens),
+            nameFormats = makeNameFormats(customTokens),
+        )
     }
 
     fun resetRecordingSettings() {
@@ -403,6 +412,7 @@ internal class SettingsViewModel @Inject constructor(
             }
             is SettingsScreenAction.SetShowRenamingDialog -> setShowRenamingDialog(action.value)
             is SettingsScreenAction.SetNameFormat -> setNameFormat(action.value)
+            SettingsScreenAction.RefreshNameFormat -> refreshNameFormat()
             SettingsScreenAction.ResetRecordingSettings -> resetRecordingSettings()
             is SettingsScreenAction.SelectRecordingFormat -> selectRecordingFormat(action.value)
             is SettingsScreenAction.SelectSampleRate -> selectSampleRate(action.value)
@@ -471,6 +481,7 @@ internal sealed class SettingsScreenAction {
     data class SetFloatingRecorderOverlayEnabled(val value: Boolean) : SettingsScreenAction()
     data class SetShowRenamingDialog(val value: Boolean) : SettingsScreenAction()
     data class SetNameFormat(val value: NameFormatItem) : SettingsScreenAction()
+    data object RefreshNameFormat : SettingsScreenAction()
     data object ResetRecordingSettings : SettingsScreenAction()
     data class SelectRecordingFormat(val value: RecordingFormat) : SettingsScreenAction()
     data class SelectSampleRate(val value: SampleRate) : SettingsScreenAction()
