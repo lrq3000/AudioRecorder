@@ -3,6 +3,7 @@ package com.dimowner.audiorecorder.v2.app.overlay
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
+import android.app.ActivityManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -38,6 +39,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.PopupMenu
 import android.widget.TextView
+import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.DrawableCompat
@@ -57,8 +59,11 @@ import com.dimowner.audiorecorder.v2.data.model.RenameSpeechMode
 import com.dimowner.audiorecorder.v2.data.model.isSystemAudioCaptureSupported
 import com.dimowner.audiorecorder.v2.di.qualifiers.IoDispatcher
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -83,6 +88,9 @@ class FloatingRecorderOverlayService : Service() {
     private var recordingEventJob: Job? = null
 
     private lateinit var windowManager: WindowManager
+    private lateinit var dismissTarget: OverlayDismissTarget
+    private val recordingServiceReady = CompletableDeferred<AudioRecordingService>()
+    @Volatile private var isClosing = false
     private var iconView: FrameLayout? = null
     private var iconParams: WindowManager.LayoutParams? = null
     private var renameView: View? = null
@@ -97,8 +105,8 @@ class FloatingRecorderOverlayService : Service() {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             val binder = service as? AudioRecordingService.ServiceBinder
             recordingService = binder?.getService()
-            isRecordingServiceBound = recordingService != null
             recordingService?.let { boundService ->
+                recordingServiceReady.complete(boundService)
                 subscribeRecordingService(boundService)
                 if (pendingStop) {
                     pendingStop = false
@@ -112,12 +120,18 @@ class FloatingRecorderOverlayService : Service() {
             isRecordingServiceBound = false
             recordingStateJob?.cancel()
             recordingEventJob?.cancel()
+            recordingServiceReady.completeExceptionally(IllegalStateException("Recording service disconnected"))
+        }
+
+        override fun onNullBinding(name: ComponentName?) {
+            recordingServiceReady.completeExceptionally(IllegalStateException("Recording service returned no binder"))
         }
     }
 
     override fun onCreate() {
         super.onCreate()
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        dismissTarget = OverlayDismissTarget(this, windowManager)
         createNotificationChannel()
         startForegroundServiceNotification()
         bindRecordingService()
@@ -131,6 +145,7 @@ class FloatingRecorderOverlayService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (isClosing) return START_NOT_STICKY
         if (intent?.action == ACTION_STOP) {
             stopSelf()
             return START_NOT_STICKY
@@ -148,6 +163,8 @@ class FloatingRecorderOverlayService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
+        dismissTarget.hide()
+        saveFeedbackAnimator?.cancel()
         removeRenameOverlay()
         removeIconOverlay()
         unbindRecordingService()
@@ -176,6 +193,7 @@ class FloatingRecorderOverlayService : Service() {
                     is AudioRecordingServiceEvent.RecordingStopped -> handleRecordingStopped(
                         recordId = event.recordId,
                         stoppedFromFloatingOverlay = event.stoppedFromFloatingOverlay,
+                        suppressRenameDialog = event.suppressRenameDialog,
                     )
                     is AudioRecordingServiceEvent.ShowErrorSnack -> {
                         Timber.w("Floating recorder start/stop error: ${event.message}")
@@ -187,12 +205,18 @@ class FloatingRecorderOverlayService : Service() {
         }
     }
 
-    private suspend fun handleRecordingStopped(recordId: Long, stoppedFromFloatingOverlay: Boolean) {
+    private suspend fun handleRecordingStopped(
+        recordId: Long,
+        stoppedFromFloatingOverlay: Boolean,
+        suppressRenameDialog: Boolean,
+    ) {
+        if (isClosing) return
         iconView?.post { runSavedAnimation() }
         val renamePolicy = recordingStoppedRenamePolicy(
             askToRenameAfterRecordingStopped = prefs.askToRenameAfterRecordingStopped,
             recordId = recordId,
             stoppedFromFloatingOverlay = stoppedFromFloatingOverlay,
+            suppressRenameDialog = suppressRenameDialog,
         )
         if (renamePolicy.showFloatingOverlayRenameDialog) {
             recordsDataSource.getRecord(recordId)?.let { record ->
@@ -273,6 +297,7 @@ class FloatingRecorderOverlayService : Service() {
         private var initialPinchSize = 0
 
         override fun onTouch(view: View, event: MotionEvent): Boolean {
+            if (isClosing) return true
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     downRawX = event.rawX
@@ -298,15 +323,19 @@ class FloatingRecorderOverlayService : Service() {
                         return true
                     }
 
+                    if (suppressTap) return true // A completed pinch must not turn into a dismissal drag.
+
                     val deltaX = event.rawX - downRawX
                     val deltaY = event.rawY - downRawY
                     val movedEnough = abs(deltaX) > touchSlop || abs(deltaY) > touchSlop
                     val heldLongEnough = event.eventTime - downTime >= longPressTimeout
                     if (movedEnough && heldLongEnough) {
+                        if (!dragging) dismissTarget.show()
                         dragging = true
                         params.x = startX + deltaX.toInt()
                         params.y = startY + deltaY.toInt()
                         windowManager.updateViewLayout(view, params)
+                        dismissTarget.update(view)
                     }
                     return true
                 }
@@ -318,13 +347,18 @@ class FloatingRecorderOverlayService : Service() {
                     if (pinching) {
                         finishPinch(view)
                     } else if (dragging) {
-                        persistIconPosition(params)
+                        val dismiss = dismissTarget.contains(view)
+                        dismissTarget.hide()
+                        if (dismiss) dismissOverlayAndApp() else persistIconPosition(params)
                     } else if (!suppressTap) {
                         handleIconTap()
                     }
+                    dismissTarget.hide()
                     return true
                 }
                 MotionEvent.ACTION_CANCEL -> {
+                    // Cancellation is never a drop, even if the last position was over the X.
+                    dismissTarget.hide()
                     if (pinching) {
                         finishPinch(view)
                     } else if (dragging) {
@@ -343,6 +377,7 @@ class FloatingRecorderOverlayService : Service() {
             // Once a second finger joins, the gesture is resize-only. This prevents an
             // accidental start/stop tap or long-press drag after the pinch ends.
             pinching = true
+            dismissTarget.hide()
             suppressTap = true
             dragging = false
             initialPinchDistance = distance
@@ -454,6 +489,42 @@ class FloatingRecorderOverlayService : Service() {
         }
     }
 
+    private fun dismissOverlayAndApp() {
+        if (isClosing) return
+        isClosing = true
+        removeRenameOverlay()
+        saveFeedbackAnimator?.cancel()
+        serviceScope.launch(Dispatchers.Main.immediate) {
+            try {
+                audioPlayer.stop()
+                // Keep the binding alive until WAV/header/tag/DB finalization has finished.
+                // Closing the task first can tear down clients before a recording is saved.
+                val saved = recordingServiceReady.await().stopForDismissal()
+                if (!saved) {
+                    isClosing = false
+                    Toast.makeText(this@FloatingRecorderOverlayService,
+                        R.string.msg_save_recording_failed, Toast.LENGTH_LONG).show()
+                    return@launch
+                }
+                (getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager).appTasks.forEach {
+                    it.finishAndRemoveTask()
+                }
+                removeIconOverlay()
+                // Explicit stop is temporary: leave the preference alone so opening the app
+                // again starts the overlay normally. Never kill the process or its decode work.
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.e(e, "Unable to dismiss floating recorder")
+                isClosing = false
+                Toast.makeText(this@FloatingRecorderOverlayService,
+                    R.string.msg_file_operation_failed, Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
     private fun updateIconAppearance(recording: Boolean) {
         if (recording) {
             saveFeedbackAnimator?.cancel()
@@ -469,6 +540,7 @@ class FloatingRecorderOverlayService : Service() {
     }
 
     private fun runSavedAnimation() {
+        if (isClosing) return
         val view = iconView ?: return
         saveFeedbackAnimator?.cancel()
 
@@ -513,6 +585,7 @@ class FloatingRecorderOverlayService : Service() {
     }
 
     private fun showRenameOverlay(record: Record) {
+        if (isClosing) return
         removeRenameOverlay()
 
         val metrics = resources.displayMetrics
@@ -992,11 +1065,15 @@ class FloatingRecorderOverlayService : Service() {
 
     private fun bindRecordingService() {
         if (!isRecordingServiceBound) {
-            bindService(
+            // Track the binding request, including the time before onServiceConnected arrives.
+            isRecordingServiceBound = bindService(
                 Intent(this, AudioRecordingService::class.java),
                 recordingServiceConnection,
                 Context.BIND_AUTO_CREATE,
             )
+            if (!isRecordingServiceBound) {
+                recordingServiceReady.completeExceptionally(IllegalStateException("Cannot bind recording service"))
+            }
         }
     }
 
