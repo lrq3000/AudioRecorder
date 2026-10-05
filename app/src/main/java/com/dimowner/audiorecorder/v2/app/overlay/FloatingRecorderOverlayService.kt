@@ -43,6 +43,8 @@ import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.DrawableCompat
 import com.dimowner.audiorecorder.AppConstantsV2.RECORD_DESCRIPTION_MAX_LENGTH
 import com.dimowner.audiorecorder.R
+import com.dimowner.audiorecorder.app.EXTRA_RECORDING_STARTED_FROM_FLOATING_OVERLAY
+import com.dimowner.audiorecorder.app.TransparentRecordingActivity
 import com.dimowner.audiorecorder.audio.player.PlayerContractNew
 import com.dimowner.audiorecorder.v2.app.HomeActivity
 import com.dimowner.audiorecorder.v2.audio.AudioRecordingService
@@ -52,6 +54,7 @@ import com.dimowner.audiorecorder.v2.data.PrefsV2
 import com.dimowner.audiorecorder.v2.data.RecordsDataSource
 import com.dimowner.audiorecorder.v2.data.model.Record
 import com.dimowner.audiorecorder.v2.data.model.RenameSpeechMode
+import com.dimowner.audiorecorder.v2.data.model.isSystemAudioCaptureSupported
 import com.dimowner.audiorecorder.v2.di.qualifiers.IoDispatcher
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineDispatcher
@@ -437,10 +440,17 @@ class FloatingRecorderOverlayService : Service() {
             }
         } else {
             audioPlayer.stop()
-            AudioRecordingService.startServiceForeground(
-                context = applicationContext,
-                startedFromFloatingOverlay = true,
-            )
+            if (prefs.settingAudioSource.isSystemAudio && isSystemAudioCaptureSupported()) {
+                startActivity(Intent(this, TransparentRecordingActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    putExtra(EXTRA_RECORDING_STARTED_FROM_FLOATING_OVERLAY, true)
+                })
+            } else {
+                AudioRecordingService.startServiceForeground(
+                    context = applicationContext,
+                    startedFromFloatingOverlay = true,
+                )
+            }
         }
     }
 

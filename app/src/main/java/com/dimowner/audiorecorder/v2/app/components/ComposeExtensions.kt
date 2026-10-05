@@ -1,7 +1,11 @@
 package com.dimowner.audiorecorder.v2.app.components
 
 import android.app.Activity
+import android.content.res.Resources
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.view.WindowManager
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.clickable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -11,7 +15,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
+import timber.log.Timber
+import androidx.core.graphics.createBitmap
 
 /**
  * Wraps an [onClick] lambda with another one that supports debounce clicks.
@@ -78,6 +88,44 @@ fun KeepScreenOn(enabled: Boolean) {
         }
         onDispose {
             window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+    }
+}
+
+/**
+ * A safe alternative to `painterResource` that guards against [Resources.NotFoundException]
+ * crashes seen in the wild (Crashlytics reports of `ResourceIdCache.resolveResourcePath` throwing
+ * for drawable ids that are present in the resource table but have no value for the device's
+ * configuration — e.g. `R.drawable.waveform`, our only raster drawable, when the matching density
+ * split isn't installed, plus app-updated-while-running and repacked-APK cases).
+ *
+ * Note this is only a safety net: a drawable should also always have a density-agnostic definition
+ * in `res/drawable/` so it ships in the base APK and stays resolvable on every configuration.
+ *
+ * Deliberately avoids calling Compose's `painterResource` (and its internal `ResourceIdCache`)
+ * since try/catch isn't supported around composable invocations, and the cache itself is the
+ * source of the crash. Instead, the drawable is resolved and rasterized with plain framework
+ * APIs inside a `remember` block, where exceptions can be safely caught.
+ *
+ * Returns `null` instead of crashing when the resource can't be resolved, so callers
+ * can render a fallback (or nothing) instead of taking down the whole app.
+ */
+@Composable
+fun rememberSafePainterResource(@DrawableRes id: Int): Painter? {
+    val context = LocalContext.current
+    return remember(id) {
+        try {
+            val drawable = ContextCompat.getDrawable(context, id) ?: return@remember null
+            val width = drawable.intrinsicWidth.coerceAtLeast(1)
+            val height = drawable.intrinsicHeight.coerceAtLeast(1)
+            val bitmap = createBitmap(width, height)
+            val canvas = Canvas(bitmap)
+            drawable.setBounds(0, 0, width, height)
+            drawable.draw(canvas)
+            BitmapPainter(bitmap.asImageBitmap())
+        } catch (e: Resources.NotFoundException) {
+            Timber.e(e, "Failed to resolve drawable resource id=$id")
+            null
         }
     }
 }

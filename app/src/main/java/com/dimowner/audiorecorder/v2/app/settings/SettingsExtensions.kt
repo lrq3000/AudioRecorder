@@ -45,44 +45,57 @@ import com.dimowner.audiorecorder.v2.DefaultValues
 import com.dimowner.audiorecorder.v2.data.model.BitRate
 import com.dimowner.audiorecorder.v2.data.model.ChannelCount
 import com.dimowner.audiorecorder.v2.data.model.NameFormat
+import com.dimowner.audiorecorder.v2.data.model.NameFormatToken
+import com.dimowner.audiorecorder.v2.data.model.formatRecordName
+import com.dimowner.audiorecorder.v2.data.model.presetTokens
 import com.dimowner.audiorecorder.v2.data.model.RecordingFormat
 import com.dimowner.audiorecorder.v2.data.model.SampleRate
 import timber.log.Timber
+import androidx.core.net.toUri
 
-fun makeNameFormats(): List<NameFormatItem> {
-    return listOf(
-        NameFormatItem(
-            NameFormat.Record, FileUtil.generateRecordNameCounted(1) + ".m4a"
-        ),
-        NameFormatItem(
-            NameFormat.Date, FileUtil.generateRecordNameDateVariant() + ".m4a"
-        ),
-        NameFormatItem(
-            NameFormat.DateUs, FileUtil.generateRecordNameDateUS() + ".m4a"
-        ),
-        NameFormatItem(
-            NameFormat.DateIso8601, FileUtil.generateRecordNameDateISO8601() + ".m4a"
-        ),
-        NameFormatItem(
-            NameFormat.Timestamp, FileUtil.generateRecordNameMills() + ".m4a"
-        ),
-    )
+/**
+ * Builds the name format entries shown in the settings dropdown. [NameFormat.Custom] is only
+ * offered once the user has built a format in the name format constructor.
+ *
+ * @param customTokens Tokens of the user built format, see `PrefsV2.customNameFormat`.
+ */
+fun makeNameFormats(customTokens: List<NameFormatToken> = emptyList()): List<NameFormatItem> {
+    val presets = listOf(
+        NameFormat.Record,
+        NameFormat.Date,
+        NameFormat.DateUs,
+        NameFormat.DateIso8601,
+        NameFormat.DateLong,
+        NameFormat.Timestamp,
+    ).map { it.toNameFormatItem(customTokens) }
+    return if (customTokens.isEmpty()) {
+        presets
+    } else {
+        presets + NameFormat.Custom.toNameFormatItem(customTokens)
+    }
 }
 
-fun NameFormat.toNameFormatItem(): NameFormatItem {
+/**
+ * Renders a sample record name for this format.
+ *
+ * @param customTokens Tokens used to render [NameFormat.Custom]; ignored by the presets.
+ */
+fun NameFormat.toNameFormatItem(customTokens: List<NameFormatToken> = emptyList()): NameFormatItem {
     val text = when (this) {
-        NameFormat.Record -> FileUtil.generateRecordNameCounted(1) + ".m4a"
-        NameFormat.Date -> FileUtil.generateRecordNameDateVariant() + ".m4a"
-        NameFormat.DateUs -> FileUtil.generateRecordNameDateUS() + ".m4a"
-        NameFormat.DateIso8601 -> FileUtil.generateRecordNameDateISO8601() + ".m4a"
-        NameFormat.Timestamp -> FileUtil.generateRecordNameMills() + ".m4a"
+        NameFormat.Record -> FileUtil.generateRecordNameCounted(1)
+        NameFormat.Date -> FileUtil.generateRecordNameDateVariant()
+        NameFormat.DateUs -> FileUtil.generateRecordNameDateUS()
+        NameFormat.DateIso8601 -> FileUtil.generateRecordNameDateISO8601()
+        NameFormat.DateLong -> NameFormat.DateLong.presetTokens().orEmpty().formatRecordName()
+        NameFormat.Timestamp -> FileUtil.generateRecordNameMills()
+        NameFormat.Custom -> customTokens.formatRecordName()
     }
-    return NameFormatItem(this, text)
+    return NameFormatItem(this, "$text.m4a")
 }
 
 private fun rateIntentForUrl(url: String, context: Context): Intent {
     val intent = Intent(
-        Intent.ACTION_VIEW, Uri.parse(String.format("%s?id=%s", url, context.packageName))
+        Intent.ACTION_VIEW, String.format("%s?id=%s", url, context.packageName).toUri()
     )
     var flags = Intent.FLAG_ACTIVITY_NO_HISTORY or Intent.FLAG_ACTIVITY_MULTIPLE_TASK
     flags = flags or Intent.FLAG_ACTIVITY_NEW_DOCUMENT
@@ -157,6 +170,13 @@ fun Spanned.toAnnotatedString(): AnnotatedString = buildAnnotatedString {
 @Composable
 fun htmlStringResource(@StringRes resId: Int): AnnotatedString {
     val text = stringResource(resId)
+    val spanned = HtmlCompat.fromHtml(text, HtmlCompat.FROM_HTML_MODE_COMPACT)
+    return spanned.toAnnotatedString()
+}
+
+@Composable
+fun htmlStringResources(@StringRes vararg resIds: Int): AnnotatedString {
+    val text = resIds.map { stringResource(it) }.joinToString("<br/><br/>")
     val spanned = HtmlCompat.fromHtml(text, HtmlCompat.FROM_HTML_MODE_COMPACT)
     return spanned.toAnnotatedString()
 }
@@ -289,49 +309,29 @@ fun getChannelCounts(
     selected: ChannelCount?,
     strings: Array<String>
 ): List<ChipItem<ChannelCount>> {
-    return when (format) {
-        RecordingFormat.M4a,
-        RecordingFormat.Wav -> {
-            ChannelCount.entries.toList().mapIndexed { i, channelCount ->
-                ChipItem(
-                    id = i,
-                    value = channelCount,
-                    name = strings[i],
-                    isSelected = channelCount == selected
-                )
-            }
-        }
-        RecordingFormat.ThreeGp -> {
-            listOf(
-                ChipItem(
-                    id = 0,
-                    value = ChannelCount.Mono,
-                    name = strings[1],
-                    isSelected = ChannelCount.Mono == selected
-                )
-            )
-        }
+    return format.config.supportedChannelCounts.map { channelCount ->
+        ChipItem(
+            id = channelCount.index,
+            value = channelCount,
+            name = strings[channelCount.index],
+            isSelected = channelCount == selected
+        )
     }
 }
+
 
 fun getBitRates(
     format: RecordingFormat,
     selected: BitRate?,
     strings: Array<String>
 ): List<ChipItem<BitRate>> {
-    return when (format) {
-        RecordingFormat.M4a -> {
-            BitRate.entries.toList().mapIndexed { i, bitRate ->
-                ChipItem(
-                    id = i,
-                    value = bitRate,
-                    name = strings[i],
-                    isSelected = bitRate == selected
-                )
-            }
-        }
-        RecordingFormat.Wav,
-        RecordingFormat.ThreeGp -> listOf()
+    return format.config.supportedBitRates.map { bitRate ->
+        ChipItem(
+            id = bitRate.index,
+            value = bitRate,
+            name = strings[bitRate.index],
+            isSelected = bitRate == selected
+        )
     }
 }
 
@@ -340,33 +340,28 @@ fun getSampleRates(
     selected: SampleRate?,
     strings: Array<String>
 ): List<ChipItem<SampleRate>> {
-    return when (format) {
-        RecordingFormat.M4a,
-        RecordingFormat.Wav -> {
-            SampleRate.entries.toList().mapIndexed { i, sampleRate ->
-                ChipItem(
-                    id = i,
-                    value = sampleRate,
-                    name = strings[i],
-                    isSelected = sampleRate == selected
-                )
-            }
-        }
-        RecordingFormat.ThreeGp -> listOf(
-            ChipItem(
-                id = 0,
-                value = SampleRate.SR8000,
-                name = strings[0],
-                isSelected = SampleRate.SR8000 == selected
-            ),
-            ChipItem(
-                id = 1,
-                value = SampleRate.SR16000,
-                name = strings[1],
-                isSelected = SampleRate.SR16000 == selected
-            )
+    return format.config.supportedSampleRates.map { sampleRate ->
+        ChipItem(
+            id = sampleRate.index,
+            value = sampleRate,
+            name = strings[sampleRate.index],
+            isSelected = sampleRate == selected
         )
     }
+}
+
+/** Sample rate to fall back to when the current selection is not supported by [this] format. */
+fun RecordingFormat.defaultSampleRate(): SampleRate = when (this) {
+    RecordingFormat.ThreeGp -> DefaultValues.Default3GpSampleRate
+    RecordingFormat.M4a,
+    RecordingFormat.Wav -> DefaultValues.DefaultSampleRate
+}
+
+/** Channel count to fall back to when the current selection is not supported by [this] format. */
+fun RecordingFormat.defaultChannelCount(): ChannelCount = when (this) {
+    RecordingFormat.ThreeGp -> DefaultValues.Default3GpChannelCount
+    RecordingFormat.M4a,
+    RecordingFormat.Wav -> DefaultValues.DefaultChannelCount
 }
 
 /**

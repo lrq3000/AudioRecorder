@@ -51,12 +51,14 @@
 	<string name="msg_recording_saved_with_name">Nagranie zapisano pod nazwą: %s</string>
     <!-- Error message when saving a recording fails -->
 	<string name="msg_save_recording_failed">Nie udało się zapisać nagrania.</string>
+	<string name="msg_not_enough_storage_space">Za mało miejsca w pamięci. Zwolnij trochę miejsca i spróbuj ponownie.</string>
 	<!-- Error message for file operation failure -->
 	<string name="msg_file_operation_failed">Operacja na pliku nie powiodła się. Spróbuj ponownie</string>
 	<!-- Error message for empty name during rename/save -->
 	<string name="msg_name_cannot_be_empty">Nazwa nie może być pusta</string>
     <!-- Permission Messages -->
     <string name="msg_permission_microphone_denied">Uprawnienie do mikrofonu jest wymagane do nagrywania dźwięku. Przyznaj uprawnienie, aby korzystać z tej funkcji.</string>
+    <string name="msg_permission_system_audio_denied">Nie przyznano uprawnienia do przechwytywania dźwięku systemowego. Przyznaj je, aby nagrywać dźwięk odtwarzany przez inne aplikacje.</string>
 	<!-- Action shown on the deletion message (used in a Snackbar/Toast) -->
 	<string name="action_undo">COFNIJ</string>
 	<!-- Generic error message for a common failure -->
@@ -124,7 +126,6 @@
 	<string name="recording_progress">Nagrywanie&#8230;</string>
 	<string name="recording_paused">Wstrzymano</string>
 	<string name="playback">Odtwarzanie: %s</string>
-	<string name="zero_time">00:00</string>
 	<string name="empty">Puste</string>
 	<string name="items_selected"> %d zaznaczono</string>
 	<string name="no_records">Brak nagrań</string>
@@ -150,6 +151,7 @@
 	<string name="info">Informacje</string>
 	<string name="rename">Zmień nazwę</string>
 	<string name="dont_ask_again">Nie pytaj ponownie</string>
+	<string name="dont_show_next_time">Nie pokazuj następnym razem</string>
 	<string name="open_with">Otwórz za pomocą&#8230;</string>
 	<string name="save_as">Zapisz jako&#8230;</string>
 	<string name="downloading">Kopiowanie: %s</string>
@@ -165,8 +167,8 @@
 		<item quantity="many">%d nagrań zostało pomyślnie przeniesionych</item>
 		<item quantity="other">%d nagrania zostały pomyślnie przeniesione</item>
 	</plurals>
-	<string name="downloading_success_and_fail_count">%d nagrań skopiowano pomyślnie, %d nie udało się skopiować</string>
-	<string name="moving_records_success_and_fail_count">%d nagrań przeniesiono pomyślnie, %d nie udało się przenieść</string>
+	<string name="downloading_success_and_fail_count">%1$d nagrań skopiowano pomyślnie, %2$d nie udało się skopiować</string>
+	<string name="moving_records_success_and_fail_count">%1$d nagrań przeniesiono pomyślnie, %2$d nie udało się przenieść</string>
 	<string name="downloading_success">%s skopiowano do katalogu \'Pobrane\'</string>
 	<string name="move_record_success">%s przeniesiono do prywatnego katalogu aplikacji</string>
 	<plurals name="downloading_failed_count">
@@ -203,9 +205,14 @@
 	<string name="by_duration">Wg czasu (najdłuższe)</string>
     <string name="by_duration_desc">Wg czasu (najkrótsze)</string>
     <string name="filter">Filtr</string>
-	<string name="filter_clear">Wyczyść</string>
+	<string name="clear">Wyczyść</string>
 	<string name="filter_dismiss">Zamknij filtr</string>
 	<string name="filter_no_options">Brak nagrań do filtrowania</string>
+	<string name="search">Szukaj</string>
+	<string name="search_records_hint">Szukaj nagrań</string>
+	<string name="search_close">Zamknij wyszukiwanie</string>
+	<string name="search_clear">Wyczyść wyszukiwanie</string>
+	<string name="no_search_results">Nie znaleziono nagrań dla „%1$s”</string>
 	<string name="need_write_permission">Aplikacja wymaga uprawnień dostępu do pamięci publicznej. Jeśli nie zostaną przyznane, nagrania będą przechowywane w prywatnym katalogu aplikacji</string>
 	<string name="rec_name">Nazwa:</string>
 	<string name="rec_format">Format:</string>
@@ -266,11 +273,9 @@
 		\n<b>3gp</b> to format kontenera multimedialnego opracowany dla mobilnych usług telekomunikacyjnych. Użyj go, jeśli potrzebujesz zaoszczędzić miejsce.
 		</string>
 
-	<string name="info_format_html"><![CDATA[
-<b>M4a</b> to format zakodowany z kodekiem audio AAC o dobrej jakości i małym rozmiarze. <b>(zalecane)</b>
-<br/><br/><b>Wav</b> to nieskompresowany format danych audio. Zajmuje znacznie więcej miejsca niż inne formaty. Potrzebny w szczególnych przypadkach.
-<br/><b>3gp</b> to format kontenera multimedialnego opracowany dla mobilnych usług telekomunikacyjnych. Użyj go, jeśli potrzebujesz zaoszczędzić miejsce.
-]]></string>
+	<string name="info_format_m4a_html"><![CDATA[<b>M4a</b> to format zakodowany z kodekiem audio AAC o dobrej jakości i małym rozmiarze. <b>(zalecane)</b>]]></string>
+	<string name="info_format_wav_html"><![CDATA[<b>Wav</b> to nieskompresowany format danych audio. Zajmuje znacznie więcej miejsca niż inne formaty. Potrzebny w szczególnych przypadkach.]]></string>
+	<string name="info_format_3gp_html"><![CDATA[<b>3gp</b> to format kontenera multimedialnego opracowany dla mobilnych usług telekomunikacyjnych. Użyj go, jeśli potrzebujesz zaoszczędzić miejsce.]]></string>
 
 	<string name="info_frequency"><b>Częstotliwość próbkowania</b> to liczba próbek audio przesyłanych na sekundę.
 		\n<b>48 kHz</b> to częstotliwość próbkowania używana dla DVD.
@@ -279,13 +284,11 @@
 		\n <b>8 kHz</b> — przepustowość mniejsza niż we współczesnych systemach telefonicznych. Nieodpowiednia do żadnych poważnych zadań nagraniowych.
 		</string>
 
-	<string name="info_frequency_html"><![CDATA[
-<b>Częstotliwość próbkowania</b> to liczba próbek audio przesyłanych na sekundę.
-<br/><br/><b>48 kHz</b> to częstotliwość próbkowania używana dla DVD.
-<br/><b>44,1 kHz</b> to częstotliwość próbkowania płyt Audio CD. <b>(zalecane)</b>
-<br/><b>22 kHz</b> — popularna częstotliwość dla niskich przepływności, np. 64 kbps.
-<br/><b>8 kHz</b> — przepustowość mniejsza niż we współczesnych systemach telefonicznych. Nieodpowiednia do żadnych poważnych zadań nagraniowych.
-]]></string>
+	<string name="info_frequency_header_html"><![CDATA[<b>Częstotliwość próbkowania</b> to liczba próbek audio przesyłanych na sekundę.]]></string>
+	<string name="info_frequency_48khz_html"><![CDATA[<b>48 kHz</b> to częstotliwość próbkowania używana dla DVD.]]></string>
+	<string name="info_frequency_44_1khz_html"><![CDATA[<b>44,1 kHz</b> to częstotliwość próbkowania płyt Audio CD. <b>(zalecane)</b>]]></string>
+	<string name="info_frequency_22khz_html"><![CDATA[<b>22 kHz</b> — popularna częstotliwość dla niskich przepływności, np. 64 kbps.]]></string>
+	<string name="info_frequency_8khz_html"><![CDATA[<b>8 kHz</b> — przepustowość mniejsza niż we współczesnych systemach telefonicznych. Nieodpowiednia do żadnych poważnych zadań nagraniowych.]]></string>
 
 	<string name="info_bitrate"><b>Bitrate</b> to ilość danych na sekundę dźwięku. Bezpośrednio wpływa na jakość i rozmiar nagrania.
 		\n<b>256 kbps</b> — bitrate dobrej jakości.
@@ -295,14 +298,12 @@
 		\n<b>48 kbps</b> — ogólnie akceptowalny jedynie dla mowy.
 		</string>
 
-    <string name="info_bitrate_html"><![CDATA[
-<b>Bitrate</b> to ilość danych na sekundę dźwięku. Bezpośrednio wpływa na jakość i rozmiar nagrania.
-<br/><br/><b>256 kbps</b> — bitrate dobrej jakości.
-<br/><b>192 kbps</b> — bitrate średniej jakości.
-<br/><b>128 kbps</b> — bitrate jakości średniego zakresu. Popularny bitrate dla podcastów. <b>(zalecane)</b>
-<br/><b>96 kbps</b> — zazwyczaj używany do mowy lub strumieniowania niskiej jakości.
-<br/><b>48 kbps</b> — ogólnie akceptowalny jedynie dla mowy.
-]]></string>
+    <string name="info_bitrate_header_html"><![CDATA[<b>Bitrate</b> to ilość danych na sekundę dźwięku. Bezpośrednio wpływa na jakość i rozmiar nagrania.]]></string>
+    <string name="info_bitrate_256kbps_html"><![CDATA[<b>256 kbps</b> — bitrate dobrej jakości.]]></string>
+    <string name="info_bitrate_192kbps_html"><![CDATA[<b>192 kbps</b> — bitrate średniej jakości.]]></string>
+    <string name="info_bitrate_128kbps_html"><![CDATA[<b>128 kbps</b> — bitrate jakości średniego zakresu. Popularny bitrate dla podcastów. <b>(zalecane)</b>]]></string>
+    <string name="info_bitrate_96kbps_html"><![CDATA[<b>96 kbps</b> — zazwyczaj używany do mowy lub strumieniowania niskiej jakości.]]></string>
+    <string name="info_bitrate_48kbps_html"><![CDATA[<b>48 kbps</b> — ogólnie akceptowalny jedynie dla mowy.]]></string>
 
 	<string name="info_channels">
 		<b>Stereo</b> — nagrywane są dwa oddzielne kanały. Każdy głośnik stereo odtwarza inny sygnał dźwiękowy. <b>(zalecane)</b>
@@ -319,6 +320,7 @@
 <br/><br/><b>Mikrofon:</b> Standardowe ustawienie mikrofonu. Najlepsze do nagrywania ogólnego. Automatycznie balansuje głośność głosu, zachowując naturalną atmosferę otoczenia.
 <br/><br/><b>Komunikacja głosowa:</b> Zaprojektowane specjalnie dla wyrazistości ludzkiego głosu. Najlepsze dla Bluetooth — aktywuje redukcję szumów i echa.
 <br/><br/><b>Bez przetwarzania:</b> Rejestruje surowe audio bez żadnych filtrów ani regulacji systemowych. Brak redukcji szumów tła i wyrównywania głośności. Najlepsze do nagrań wysokiej wierności lub zastosowań profesjonalnych.
+<br/><br/><b>Dźwięk systemowy:</b> Nagrywa dźwięk odtwarzany przez inne aplikacje zamiast dźwięku z mikrofonu. Aplikacje mogą nie zezwolić na nagrywanie, więc treści chronione i połączenia pozostają ciche.
 ]]></string>
 	<string name="info_3gp"><b>3gp</b> to format kontenera multimedialnego opracowany dla mobilnych usług telekomunikacyjnych. Użyj go, jeśli potrzebujesz zaoszczędzić miejsce.</string>
 	<string name="info_m4a"><b>M4a</b> to format zakodowany z kodekiem audio AAC o dobrej jakości i małym rozmiarze. <b>(zalecane)</b></string>
@@ -365,6 +367,8 @@
 	<string name="error_permission_denied">Odmowa uprawnień</string>
 	<string name="error_process_waveform">Nie można narysować przebiegu fali</string>
 	<string name="error_lost_records">Niektóre nagrania zostały usunięte lub przeniesione</string>
+	<string name="local_storage_info_title">Nagrania są przechowywane na urządzeniu</string>
+	<string name="local_storage_info_message">Nagrania nie są archiwizowane w chmurze. Usunięcie aplikacji lub jej danych trwale je skasuje.</string>
 	<string name="broken_record_title">Nagranie przerwane</string>
 	<string name="broken_record_message">Nagranie \'%s\' zostało przerwane (prawdopodobnie z powodu ponownego uruchomienia urządzenia) i plik może być uszkodzony. Czy chcesz spróbować go przywrócić?</string>
 	<string name="btn_restore">Przywróć</string>
@@ -387,6 +391,8 @@
 	<string name="button_pause">Wstrzymaj</string>
 	<string name="button_resume">Wznów</string>
 	<string name="button_finish">Zakończ</string>
+	<string name="playback_speed_value">%1$sx</string>
+	<string name="playback_speed_value_description">Prędkość odtwarzania %1$s</string>
 	<string name="legacy_app">Stara aplikacja</string>
 	<string name="legacy_app_subtitle">Przełącz na stary interfejs aplikacji</string>
 	<string name="switch_to_legacy">Przełącz na starą aplikację</string>
@@ -451,11 +457,13 @@
     <string name="app_widget_description">Widget do rozpoczęcia nagrywania</string>
 
     <string name="bluetooth_microphone_available">Dostępny mikrofon Bluetooth</string>
+    <string name="bluetooth_always_use_when_available">Zawsze używaj mikrofonu Bluetooth, gdy jest dostępny</string>
     <string name="audio_source">Źródło audio</string>
     <string name="audio_source_default">Domyślne</string>
     <string name="audio_source_mic">Mikrofon</string>
     <string name="audio_source_voice_communication">Komunikacja głosowa</string>
     <string name="audio_source_unprocessed">Bez przetwarzania</string>
+    <string name="audio_source_system">Dźwięk systemowy</string>
 
     <!-- Database migration -->
     <string name="database_update_in_progress">Aktualizacja bazy danych w toku</string>
@@ -474,4 +482,38 @@
     <!-- Navigate back button description -->
     <string name="navigate_back">Przejdź wstecz</string>
     <string name="dropdown_menu">Menu</string>
+
+    <!-- Name format constructor -->
+    <string name="name_format_edit">Edytuj format nazwy</string>
+    <string name="name_format_preview">Podgląd</string>
+    <string name="name_format_preview_empty">Dodaj elementy, aby utworzyć nazwę</string>
+    <string name="name_format_your_format">Twój format</string>
+    <string name="name_format_empty_hint">Dotknij elementów poniżej, aby dodać je do formatu.</string>
+    <string name="name_format_remove_element">Usuń element</string>
+    <string name="name_format_date_and_time">Data i godzina</string>
+    <string name="name_format_other">Licznik i tekst</string>
+    <string name="name_format_dividers">Separatory</string>
+    <string name="name_format_presets">Szablony</string>
+    <string name="name_format_add_text">Dodaj tekst</string>
+    <!-- Name format element labels -->
+    <string name="name_format_timestamp">Znacznik czasu</string>
+    <string name="name_format_year">Rok</string>
+    <string name="name_format_month">Miesiąc</string>
+    <string name="name_format_month_name">Nazwa miesiąca</string>
+    <string name="name_format_day">Dzień</string>
+    <string name="name_format_day_of_week">Dzień tygodnia</string>
+    <string name="name_format_hour_24">Godzina (24 h)</string>
+    <string name="name_format_hour_12">Godzina (12 h)</string>
+    <string name="name_format_am_pm">AM/PM</string>
+    <string name="name_format_minute">Minuta</string>
+    <string name="name_format_second">Sekunda</string>
+    <string name="name_format_counter">Licznik</string>
+    <string name="name_format_text">Tekst</string>
+    <!-- Name format preset labels -->
+    <string name="name_format_preset_timestamp">Znacznik czasu</string>
+    <string name="name_format_preset_date">Data</string>
+    <string name="name_format_preset_date_us">Data USA</string>
+    <string name="name_format_preset_date_iso8601">Data ISO 8601</string>
+    <string name="name_format_preset_date_long">Data długa</string>
+    <string name="name_format_preset_custom">Niestandardowy</string>
 </resources>

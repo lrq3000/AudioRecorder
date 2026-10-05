@@ -46,6 +46,8 @@
 	<string name="msg_recording_saved_with_name">Recording saved with name: %s</string>
     <!-- Error message when saving a recording fails -->
 	<string name="msg_save_recording_failed">Failed to save recording.</string>
+    <!-- Error message shown when an operation (saving, importing, etc.) fails because the device is out of storage space -->
+    <string name="msg_not_enough_storage_space">Not enough storage space. Free up some space and try again.</string>
 	<!-- Error message for file operation failure -->
 	<string name="msg_file_operation_failed">File operation failed. Please try again</string>
 	<!-- Error message for empty name during rename/save -->
@@ -60,6 +62,7 @@
     <string name="rename_speech_error">Speech recognition failed.</string>
     <!-- Permission Messages -->
     <string name="msg_permission_microphone_denied">Microphone permission is required to record audio. Please grant the permission to use this feature.</string>
+    <string name="msg_permission_system_audio_denied">Permission to capture system audio was not granted. Allow it to record what other apps are playing.</string>
 	<!-- Action shown on the deletion message (used in a Snackbar/Toast) -->
 	<string name="action_undo">UNDO</string>
 	<!-- Generic error message for a common failure -->
@@ -124,7 +127,6 @@
 	<string name="recording_progress">Recording&#8230;</string>
 	<string name="recording_paused">Paused</string>
 	<string name="playback">Playback: %s</string>
-	<string name="zero_time">00:00</string>
 	<string name="empty">Empty</string>
 	<string name="items_selected"> %d selected</string>
 	<string name="no_records">Records is empty</string>
@@ -148,6 +150,7 @@
 	<string name="info">Information</string>
 	<string name="rename">Rename</string>
 	<string name="dont_ask_again">Don\'t ask again</string>
+	<string name="dont_show_next_time">Don\'t show next time</string>
 	<string name="open_with">Open with&#8230;</string>
 	<string name="save_as">Save as&#8230;</string>
 	<string name="downloading">Downloading: %s</string>
@@ -159,8 +162,8 @@
 		<item quantity="one">%d record moved successfully</item>
 		<item quantity="other">%d records moved successfully</item>
 	</plurals>
-	<string name="downloading_success_and_fail_count">%d records copied successfully and %d failed to copy</string>
-	<string name="moving_records_success_and_fail_count">%d records moved successfully and %d failed to move</string>
+	<string name="downloading_success_and_fail_count">%1$d records copied successfully and %2$d failed to copy</string>
+	<string name="moving_records_success_and_fail_count">%1$d records moved successfully and %2$d failed to move</string>
 	<string name="downloading_success">%s copied to the \'Downloads\' directory</string>
 	<string name="move_record_success">%s moved to the app\'s private directory</string>
 	<plurals name="downloading_failed_count">
@@ -193,9 +196,14 @@
 	<string name="by_duration">By duration (longest)</string>
 	<string name="by_duration_desc">By duration (shortest)</string>
 	<string name="filter">Filter</string>
-	<string name="filter_clear">Clear</string>
+	<string name="clear">Clear</string>
 	<string name="filter_dismiss">Dismiss filter</string>
 	<string name="filter_no_options">No records to filter</string>
+	<string name="search">Search</string>
+	<string name="search_records_hint">Search records</string>
+	<string name="search_close">Close search</string>
+	<string name="search_clear">Clear search</string>
+	<string name="no_search_results">No records found for “%1$s”</string>
 	<string name="need_write_permission">The app requires permission to access to the public storage. If not allowed, records will be stored in the app’s private directory</string>
 	<string name="rec_name">Name:</string>
 	<string name="rec_format">Format:</string>
@@ -255,11 +263,9 @@
 		\n<b>3gp</b> is a multimedia container format developed for mobile telecommunication services. Use it if you need to save space.
 		</string>
 
-	<string name="info_format_html"><![CDATA[
-<b>M4a</b> format is encoded with AAC audio codec has good quality and small size. <b>(recommended)</b>
-<br/><br/><b>Wav</b> is uncompressed audio data format. It takes much more space than other formats. It\'s needed for specific cases.
-<br/><b>3gp</b> is a multimedia container format developed for mobile telecommunication services. Use it if you need to save space.
-]]></string>
+	<string name="info_format_m4a_html"><![CDATA[<b>M4a</b> format is encoded with AAC audio codec has good quality and small size. <b>(recommended)</b>]]></string>
+	<string name="info_format_wav_html"><![CDATA[<b>Wav</b> is uncompressed audio data format. It takes much more space than other formats. It\'s needed for specific cases.]]></string>
+	<string name="info_format_3gp_html"><![CDATA[<b>3gp</b> is a multimedia container format developed for mobile telecommunication services. Use it if you need to save space.]]></string>
 
 	<string name="info_frequency"><b>Sample rate</b> is the number of samples of audio carried per second.
 		\n<b>48kHz</b> is the sample rate used for DVDs.
@@ -268,13 +274,11 @@
 		\n <b>8kHz</b> sample rate has less bandwidth than modern telephone systems. Not suitable for any serious recording task.
 		</string>
 
-	<string name="info_frequency_html"><![CDATA[
-<b>Sample rate</b> is the number of samples of audio carried per second.
-<br/><br/><b>48kHz</b> is the sample rate used for DVDs.
-<br/><b>44,1kHz</b> is the sampling rate of Audio CDs. <b>(recommended)</b>
-<br/><b>22kHz</b> popular sample rate for low bit rate such as 64 kbps.
-<br/><b>8kHz</b> sample rate has less bandwidth than modern telephone systems. Not suitable for any serious recording task.
-]]></string>
+	<string name="info_frequency_header_html"><![CDATA[<b>Sample rate</b> is the number of samples of audio carried per second.]]></string>
+	<string name="info_frequency_48khz_html"><![CDATA[<b>48kHz</b> is the sample rate used for DVDs.]]></string>
+	<string name="info_frequency_44_1khz_html"><![CDATA[<b>44,1kHz</b> is the sampling rate of Audio CDs. <b>(recommended)</b>]]></string>
+	<string name="info_frequency_22khz_html"><![CDATA[<b>22kHz</b> popular sample rate for low bit rate such as 64 kbps.]]></string>
+	<string name="info_frequency_8khz_html"><![CDATA[<b>8kHz</b> sample rate has less bandwidth than modern telephone systems. Not suitable for any serious recording task.]]></string>
 
 	<string name="info_bitrate"><b>Bitrate</b> is size of data per second of sound. Directly affects recording quality and size.
 		\n<b>256 kbps</b> good quality bitrate.
@@ -284,14 +288,12 @@
 		\n<b>48 kbps</b> generally acceptable only for speech.
 		</string>
 
-    <string name="info_bitrate_html"><![CDATA[
-<b>Bitrate</b> is size of data per second of sound. Directly affects recording quality and size.
-<br/><br/><b>256 kbps</b> good quality bitrate.
-<br/><b>192 kbps</b> medium quality bitrate.
-<br/><b>128 kbps</b> mid-range bitrate quality. Common bitrate for podcasts. <b>(recommended)</b>
-<br/><b>96 kbps</b> generally used for speech or low-quality streaming.
-<br/><b>48 kbps</b> generally acceptable only for speech.
-]]></string>
+    <string name="info_bitrate_header_html"><![CDATA[<b>Bitrate</b> is size of data per second of sound. Directly affects recording quality and size.]]></string>
+    <string name="info_bitrate_256kbps_html"><![CDATA[<b>256 kbps</b> good quality bitrate.]]></string>
+    <string name="info_bitrate_192kbps_html"><![CDATA[<b>192 kbps</b> medium quality bitrate.]]></string>
+    <string name="info_bitrate_128kbps_html"><![CDATA[<b>128 kbps</b> mid-range bitrate quality. Common bitrate for podcasts. <b>(recommended)</b>]]></string>
+    <string name="info_bitrate_96kbps_html"><![CDATA[<b>96 kbps</b> generally used for speech or low-quality streaming.]]></string>
+    <string name="info_bitrate_48kbps_html"><![CDATA[<b>48 kbps</b> generally acceptable only for speech.]]></string>
 
 	<string name="info_channels">
 		<b>Stereo</b> two separate channels are recorded. This means that each stereo speaker has a different sound signal. <b>(recommended)</b>
@@ -308,6 +310,7 @@
 <br/><br/><b>Mic:</b> The standard microphone setting. Best for general recording. It balances voice volume automatically while capturing the natural atmosphere of surroundings.
 <br/><br/><b>Voice Communication:</b> Specifically designed for clarity of the human voice. Best for Bluetooth as it activates noise and echo cancellation.
 <br/><br/><b>Unprocessed:</b> Captures raw audio without any system filters or adjustments. No background noise removal and no volume leveling. Best for high-fidelity or professional use.
+<br/><br/><b>System Audio:</b> Records what other apps are playing instead of the microphone. Apps can refuse to be recorded, so protected content and calls stay silent.
 ]]></string>
 	<string name="info_3gp"><b>3gp</b> is a multimedia container format developed for mobile telecommunication services. Use it if you need to save space.</string>
 	<string name="info_m4a"><b>M4a</b> format is encoded with AAC audio codec has good quality and small size. <b>(recommended)</b></string>
@@ -354,6 +357,8 @@
 	<string name="error_permission_denied">Permission denied</string>
 	<string name="error_process_waveform">Can\'t draw waveform</string>
 	<string name="error_lost_records">Some of your records were deleted or moved</string>
+	<string name="local_storage_info_title">Recordings are stored on the device</string>
+	<string name="local_storage_info_message">Recordings are not backed up to the cloud. Deleting the app or its data will permanently erase them.</string>
 	<string name="broken_record_title">Recording interrupted</string>
 	<string name="broken_record_message">The recording \'%s\' was interrupted (possibly due to a device reboot) and its file may be broken. Would you like to attempt to restore it?</string>
 	<string name="btn_restore">Restore</string>
@@ -376,6 +381,11 @@
 	<string name="button_pause">Pause</string>
 	<string name="button_resume">Resume</string>
 	<string name="button_finish">Finish</string>
+	<!-- Text on a playback rate button. %1$s is the multiplier, already formatted for the locale
+	     (0.5, ٠٫٥, …). Translate the suffix to whatever marks a multiplier in your language. -->
+	<string name="playback_speed_value">%1$sx</string>
+	<!-- Screen reader description of a playback rate button. %1$s is the formatted button text. -->
+	<string name="playback_speed_value_description">Playback speed %1$s</string>
 	<string name="legacy_app">Legacy App</string>
 	<string name="legacy_app_subtitle">Switch to the old app interface</string>
 	<string name="switch_to_legacy">Switch to Legacy app</string>
@@ -442,11 +452,13 @@
     <string name="app_widget_description">Start recording widget</string>
 
     <string name="bluetooth_microphone_available">Bluetooth microphone available</string>
+    <string name="bluetooth_always_use_when_available">Always use Bluetooth mic when available</string>
     <string name="audio_source">Audio Source</string>
     <string name="audio_source_default">Default</string>
     <string name="audio_source_mic">Mic</string>
     <string name="audio_source_voice_communication">Voice Communication</string>
     <string name="audio_source_unprocessed">Unprocessed</string>
+    <string name="audio_source_system">System Audio</string>
 
     <!-- Database migration -->
     <string name="database_update_in_progress">Database update in progress</string>
@@ -466,4 +478,44 @@
     <string name="navigate_back">Navigate back</string>
     <!-- Dropdown menu button description -->
     <string name="dropdown_menu">Menu</string>
+
+    <!-- Name format constructor screen -->
+    <string name="name_format_edit">Edit name format</string>
+    <string name="name_format_preview">Preview</string>
+    <string name="name_format_preview_empty">Add elements to build a name</string>
+    <string name="name_format_your_format">Your format</string>
+    <string name="name_format_empty_hint">Tap the elements below to add them to your format.</string>
+    <string name="name_format_remove_element">Remove element</string>
+    <string name="name_format_date_and_time">Date and time</string>
+    <string name="name_format_other">Counter and text</string>
+    <string name="name_format_dividers">Dividers</string>
+    <string name="name_format_presets">Presets</string>
+    <string name="name_format_add_text">Add text</string>
+
+    <!-- Name format element labels -->
+    <string name="name_format_timestamp">Timestamp</string>
+    <string name="name_format_year">Year</string>
+    <string name="name_format_month">Month</string>
+    <string name="name_format_month_name">Month name</string>
+    <string name="name_format_day">Day</string>
+    <string name="name_format_day_of_week">Day of week</string>
+    <string name="name_format_hour_24">Hour (24h)</string>
+    <string name="name_format_hour_12">Hour (12h)</string>
+	<!-- AM stands for ante meridiem, which means "before midday" (midnight to 11:59 AM).  -->
+	<!-- PM stands for post meridiem, which means "after midday" (noon to 11:59 PM.)-->
+    <string name="name_format_am_pm">AM/PM</string>
+    <string name="name_format_minute">Minute</string>
+    <string name="name_format_second">Second</string>
+    <string name="name_format_counter">Counter</string>
+    <string name="name_format_text">Text</string>
+    <!-- Name format preset labels -->
+    <string name="name_format_preset_timestamp">Timestamp</string>
+    <string name="name_format_preset_date">Date</string>
+    <string name="name_format_preset_date_us">Date US</string>
+    <string name="name_format_preset_date_iso8601">Date ISO 8601</string>
+    <string name="name_format_preset_date_long">Date long</string>
+    <string name="name_format_preset_custom">Custom</string>
+	<!-- Label for a divider element that is a space character, U+2423 OPEN BOX -->
+	<string name="name_format_divider_space" translatable="false">␣</string>
+	<string name="name_format_preset_record" translatable="false">Record</string>
 </resources>

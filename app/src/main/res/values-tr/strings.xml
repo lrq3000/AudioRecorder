@@ -44,12 +44,14 @@
 	<string name="msg_recording_saved_with_name">Kayıt şu isimle kaydedildi: %s</string>
 	<!-- Error message when saving a recording fails -->
 	<string name="msg_save_recording_failed">Kayıt kaydedilemedi.</string>
+	<string name="msg_not_enough_storage_space">Yeterli depolama alanı yok. Biraz yer açın ve tekrar deneyin.</string>
 	<!-- Error message for file operation failure -->
 	<string name="msg_file_operation_failed">Dosya işlemi başarısız. Lütfen tekrar deneyin</string>
 	<!-- Error message for empty name during rename/save -->
 	<string name="msg_name_cannot_be_empty">İsim boş bırakılamaz</string>
 	<!-- Permission Messages -->
 	<string name="msg_permission_microphone_denied">Ses kaydetmek için mikrofon iznine ihtiyaç var. Bu özelliği kullanmak için izni onaylayın.</string>
+	<string name="msg_permission_system_audio_denied">Sistem sesini yakalama izni verilmedi. Diğer uygulamaların çaldığı sesi kaydetmek için izni onaylayın.</string>
 	<!-- Action shown on the deletion message (used in a Snackbar/Toast) -->
 	<string name="action_undo">GERİ AL</string>
 	<!-- Generic error message for a common failure -->
@@ -113,7 +115,6 @@
 	<string name="recording_progress">Kayıt alınıyor&#8230;</string>
 	<string name="recording_paused">Duraklatıldı</string>
 	<string name="playback">Oynat: %s</string>
-	<string name="zero_time">00:00</string>
 	<string name="empty">Boş</string>
 	<string name="items_selected"> %d seçildi</string>
 	<string name="no_records">Kayıtlar boş</string>
@@ -137,6 +138,7 @@
 	<string name="info">Bilgi</string>
 	<string name="rename">Yeniden adlandır</string>
 	<string name="dont_ask_again">Bir daha sorma</string>
+	<string name="dont_show_next_time">Bir dahaki sefere gösterme</string>
 	<string name="open_with">Birlikte aç&#8230;</string>
 	<string name="save_as">Farklı kaydet&#8230;</string>
 	<string name="downloading">İndiriliyor: %s</string>
@@ -148,8 +150,8 @@
 		<item quantity="one">%d kayıt taşındı</item>
 		<item quantity="other">%d kayıt taşındı</item>
 	</plurals>
-	<string name="downloading_success_and_fail_count">%d kayıt kopyalandı ve %d kayıt kopyalanamadı</string>
-	<string name="moving_records_success_and_fail_count">%d kayıt taşındı ve %d kayıt taşınamadı</string>
+	<string name="downloading_success_and_fail_count">%1$d kayıt kopyalandı ve %2$d kayıt kopyalanamadı</string>
+	<string name="moving_records_success_and_fail_count">%1$d kayıt taşındı ve %2$d kayıt taşınamadı</string>
 	<string name="downloading_success">%s \'Downloads\' dizinine kaydedildi</string>
 	<string name="move_record_success">%s uygulama dizinine taşındı</string>
 	<plurals name="downloading_failed_count">
@@ -182,9 +184,14 @@
 	<string name="by_duration">Süreye göre (en uzun)</string>
     <string name="by_duration_desc">Süreye göre (en kısa)</string>
     <string name="filter">Filtre</string>
-	<string name="filter_clear">Temizle</string>
+	<string name="clear">Temizle</string>
 	<string name="filter_dismiss">Filtreyi kapat</string>
 	<string name="filter_no_options">Filtrelenecek kayıt yok</string>
+	<string name="search">Ara</string>
+	<string name="search_records_hint">Kayıtlarda ara</string>
+	<string name="search_close">Aramayı kapat</string>
+	<string name="search_clear">Aramayı temizle</string>
+	<string name="no_search_results">“%1$s” için kayıt bulunamadı</string>
 	<string name="need_write_permission">Uygulama genel dosya dizinine erişim izni gerektiriyor. Eğer izin onaylanmazsa, kayıtlar uygulamanın kendi dizinine kaydedilecek.</string>
 	<string name="rec_name">İsim:</string>
 	<string name="rec_format">Format:</string>
@@ -244,11 +251,9 @@
 		\n<b>Wav</b> sıkıştırılmamış ses formatıdır. Diğer formatlardan daha fazla alan kaplar. Özel durumlarda kullanılabilir.
 		\n<b>3gp</b> mobil telekomünikasyon servisleri için geliştirilmiş bir multimedya formatıdır. Alandan tasarruf etmeniz gerekiyorsa kullanabilirsiniz.
 		</string>
-	<string name="info_format_html"><![CDATA[
-<b>M4a</b> formatı AAC ses çözücüsüyle kodlanmıştır, iyi kalitede ve düşük boyutludur. <b>(önerilen)</b>
-<br/><br/><b>Wav</b> sıkıştırılmamış ses formatıdır. Diğer formatlardan daha fazla alan kaplar. Özel durumlarda kullanılabilir.
-<br/><b>3gp</b> mobil telekomünikasyon servisleri için geliştirilmiş bir multimedya formatıdır. Alandan tasarruf etmeniz gerekiyorsa kullanabilirsiniz.
-]]></string>
+	<string name="info_format_m4a_html"><![CDATA[<b>M4a</b> formatı AAC ses çözücüsüyle kodlanmıştır, iyi kalitede ve düşük boyutludur. <b>(önerilen)</b>]]></string>
+	<string name="info_format_wav_html"><![CDATA[<b>Wav</b> sıkıştırılmamış ses formatıdır. Diğer formatlardan daha fazla alan kaplar. Özel durumlarda kullanılabilir.]]></string>
+	<string name="info_format_3gp_html"><![CDATA[<b>3gp</b> mobil telekomünikasyon servisleri için geliştirilmiş bir multimedya formatıdır. Alandan tasarruf etmeniz gerekiyorsa kullanabilirsiniz.]]></string>
 
 	<string name="info_frequency"><b>Örnekleme oranı</b> saniyede taşınan ses örneklerinin oranıdır.
 		\n<b>48kHz</b> DVD\'ler için kullanılan örnekleme oranıdır.
@@ -257,13 +262,11 @@
 		\n <b>8kHz</b> modern telefon sistemlerine göre daha düşük bant genişliğine sahip örnekleme oranıdır. Önemli kayıtlar için uygun değildir.
 		</string>
 
-	<string name="info_frequency_html"><![CDATA[
-<b>Örnekleme oranı</b> saniyede taşınan ses örneklerinin oranıdır.
-<br/><br/><b>48kHz</b> DVD\'ler için kullanılan örnekleme oranıdır.
-<br/><b>44,1kHz</b> Ses CD\'leri için kullanılan örnekleme oranıdır. <b>(önerilen)</b>
-<br/><b>22kHz</b> 64 kbps gibi düşük bit oranı için popüler bir örnekleme oranıdır.
-<br/><b>8kHz</b> modern telefon sistemlerine göre daha düşük bant genişliğine sahip örnekleme oranıdır. Önemli kayıtlar için uygun değildir.
-]]></string>
+	<string name="info_frequency_header_html"><![CDATA[<b>Örnekleme oranı</b> saniyede taşınan ses örneklerinin oranıdır.]]></string>
+	<string name="info_frequency_48khz_html"><![CDATA[<b>48kHz</b> DVD\'ler için kullanılan örnekleme oranıdır.]]></string>
+	<string name="info_frequency_44_1khz_html"><![CDATA[<b>44,1kHz</b> Ses CD\'leri için kullanılan örnekleme oranıdır. <b>(önerilen)</b>]]></string>
+	<string name="info_frequency_22khz_html"><![CDATA[<b>22kHz</b> 64 kbps gibi düşük bit oranı için popüler bir örnekleme oranıdır.]]></string>
+	<string name="info_frequency_8khz_html"><![CDATA[<b>8kHz</b> modern telefon sistemlerine göre daha düşük bant genişliğine sahip örnekleme oranıdır. Önemli kayıtlar için uygun değildir.]]></string>
 
 	<string name="info_bitrate"><b>Bit hızı</b> sesin saniye başına sahip olduğu veri boyutudur. Kayıt kalitesini ve boyutunu doğrudan etkiler.
 		\n<b>256 kbps</b> yüksek kalite bit hızı.
@@ -273,14 +276,12 @@
 		\n<b>48 kbps</b> genelde sadece konuşmalar için kullanılır.
 		</string>
 
-	<string name="info_bitrate_html"><![CDATA[
-<b>Bit hızı</b> sesin saniye başına sahip olduğu veri boyutudur. Kayıt kalitesini ve boyutunu doğrudan etkiler.
-<br/><br/><b>256 kbps</b> yüksek kalite bit hızı.
-<br/><b>192 kbps</b> orta kalite bit hızı.
-<br/><b>128 kbps</b> orta sınıf bit hızı kalitesi. Podcastler için yaygındır. <b>(önerilen)</b>
-<br/><b>96 kbps</b> genelde konuşma ve düşük kaliteli yayınlarda kullanılır.
-<br/><b>48 kbps</b> genelde sadece konuşmalar için kullanılır.
-]]></string>
+	<string name="info_bitrate_header_html"><![CDATA[<b>Bit hızı</b> sesin saniye başına sahip olduğu veri boyutudur. Kayıt kalitesini ve boyutunu doğrudan etkiler.]]></string>
+	<string name="info_bitrate_256kbps_html"><![CDATA[<b>256 kbps</b> yüksek kalite bit hızı.]]></string>
+	<string name="info_bitrate_192kbps_html"><![CDATA[<b>192 kbps</b> orta kalite bit hızı.]]></string>
+	<string name="info_bitrate_128kbps_html"><![CDATA[<b>128 kbps</b> orta sınıf bit hızı kalitesi. Podcastler için yaygındır. <b>(önerilen)</b>]]></string>
+	<string name="info_bitrate_96kbps_html"><![CDATA[<b>96 kbps</b> genelde konuşma ve düşük kaliteli yayınlarda kullanılır.]]></string>
+	<string name="info_bitrate_48kbps_html"><![CDATA[<b>48 kbps</b> genelde sadece konuşmalar için kullanılır.]]></string>
 
 	<string name="info_channels">
 		<b>Stereo</b> iki ayrı kanalda kaydedilir. Her hoparlör farklı ses sinyaline sahip olur. <b>(önerilen)</b>
@@ -297,6 +298,7 @@
 <br/><br/><b>Mikrofon:</b> Standart mikrofon ayarıdır. Genel kayıt için en iyisidir. Çevresindeki doğal atmosferi yakalarken ses seviyesini otomatik olarak dengeler.
 <br/><br/><b>Ses İletişimi:</b> İnsan sesinin netliği için özel olarak tasarlanmıştır. Gürültü ve yankı iptalini etkinleştirdiğinden Bluetooth için en iyisidir.
 <br/><br/><b>İşlenmemiş:</b> Sistem filtreleri veya ayarlamaları olmadan ham sesi yakalar. Arka plan gürültü giderme ve ses seviyesi dengeleme yoktur. Yüksek kaliteli veya profesyonel kullanım için en iyisidir.
+<br/><br/><b>Sistem sesi:</b> Mikrofon yerine diğer uygulamaların çaldığı sesi kaydeder. Uygulamalar kaydedilmeyi reddedebilir, bu nedenle korumalı içerik ve aramalar sessiz kalır.
 ]]></string>
 	<string name="info_3gp"><b>3gp</b> mobil telekomünikasyon servisleri için geliştirilmiş bir multimedya formatıdır. Alandan tasarruf etmeniz gerekiyorsa kullanabilirsiniz.</string>
 	<string name="info_m4a"><b>M4a</b> formatı AAC ses çözücüsüyle kodlanmıştır, iyi kalitede ve düşük boyutludur. <b>(önerilen)</b></string>
@@ -343,6 +345,8 @@
 	<string name="error_permission_denied">İzin reddedildi</string>
 	<string name="error_process_waveform">Dalga biçimi çizilemedi</string>
 	<string name="error_lost_records">Bazı kayıtlarınız silinmiş veya taşınmış</string>
+	<string name="local_storage_info_title">Kayıtlar cihazda saklanır</string>
+	<string name="local_storage_info_message">Kayıtlar buluta yedeklenmez. Uygulamayı veya verilerini silmek onları kalıcı olarak siler.</string>
 	<string name="broken_record_title">Kayıt kesildi</string>
 	<string name="broken_record_message">\'%s\' kaydı (muhtemelen cihaz yeniden başlatılması nedeniyle) kesintiye uğradı ve dosyası bozulmuş olabilir. Geri yüklemeyi denemek ister misiniz?</string>
 	<string name="btn_restore">Geri Yükle</string>
@@ -365,6 +369,8 @@
 	<string name="button_pause">Duraklat</string>
 	<string name="button_resume">Devam et</string>
 	<string name="button_finish">Bitir</string>
+	<string name="playback_speed_value">%1$sx</string>
+	<string name="playback_speed_value_description">Oynatma hızı %1$s</string>
 	<string name="legacy_app">Eski Uygulama</string>
 	<string name="legacy_app_subtitle">Eski uygulama arayüzüne geç</string>
 	<string name="switch_to_legacy">Eski uygulamaya geç</string>
@@ -425,11 +431,13 @@
     <string name="app_widget_description">Kayıt widgetini başlat</string>
 
     <string name="bluetooth_microphone_available">Bluetooth mikrofon mevcut</string>
+    <string name="bluetooth_always_use_when_available">Kullanılabilir olduğunda her zaman Bluetooth mikrofonu kullan</string>
     <string name="audio_source">Ses Kaynağı</string>
     <string name="audio_source_default">Varsayılan</string>
     <string name="audio_source_mic">Mikrofon</string>
     <string name="audio_source_voice_communication">Ses İletişimi</string>
     <string name="audio_source_unprocessed">İşlenmemiş</string>
+    <string name="audio_source_system">Sistem sesi</string>
 
     <!-- Database migration -->
     <string name="database_update_in_progress">Veritabanı güncelleniyor</string>
@@ -448,4 +456,38 @@
     <!-- Navigate back button description -->
     <string name="navigate_back">Geri git</string>
     <string name="dropdown_menu">Menü</string>
+
+    <!-- Name format constructor -->
+    <string name="name_format_edit">Ad biçimini düzenle</string>
+    <string name="name_format_preview">Önizleme</string>
+    <string name="name_format_preview_empty">Ad oluşturmak için öğe ekleyin</string>
+    <string name="name_format_your_format">Biçiminiz</string>
+    <string name="name_format_empty_hint">Biçiminize eklemek için aşağıdaki öğelere dokunun.</string>
+    <string name="name_format_remove_element">Öğeyi kaldır</string>
+    <string name="name_format_date_and_time">Tarih ve saat</string>
+    <string name="name_format_other">Sayaç ve metin</string>
+    <string name="name_format_dividers">Ayırıcılar</string>
+    <string name="name_format_presets">Hazır biçimler</string>
+    <string name="name_format_add_text">Metin ekle</string>
+    <!-- Name format element labels -->
+    <string name="name_format_timestamp">Zaman damgası</string>
+    <string name="name_format_year">Yıl</string>
+    <string name="name_format_month">Ay</string>
+    <string name="name_format_month_name">Ay adı</string>
+    <string name="name_format_day">Gün</string>
+    <string name="name_format_day_of_week">Haftanın günü</string>
+    <string name="name_format_hour_24">Saat (24s)</string>
+    <string name="name_format_hour_12">Saat (12s)</string>
+    <string name="name_format_am_pm">AM/PM</string>
+    <string name="name_format_minute">Dakika</string>
+    <string name="name_format_second">Saniye</string>
+    <string name="name_format_counter">Sayaç</string>
+    <string name="name_format_text">Metin</string>
+    <!-- Name format preset labels -->
+    <string name="name_format_preset_timestamp">Zaman damgası</string>
+    <string name="name_format_preset_date">Tarih</string>
+    <string name="name_format_preset_date_us">Tarih ABD</string>
+    <string name="name_format_preset_date_iso8601">Tarih ISO 8601</string>
+    <string name="name_format_preset_date_long">Uzun tarih</string>
+    <string name="name_format_preset_custom">Özel</string>
 </resources>

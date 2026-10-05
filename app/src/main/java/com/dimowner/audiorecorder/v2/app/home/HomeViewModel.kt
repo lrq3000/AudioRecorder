@@ -19,6 +19,7 @@ package com.dimowner.audiorecorder.v2.app.home
 import android.animation.TypeEvaluator
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.app.Application
 import android.content.ComponentName
 import android.content.Context
@@ -50,6 +51,7 @@ import com.dimowner.audiorecorder.exception.ErrorParser
 import com.dimowner.audiorecorder.util.AndroidUtils
 import com.dimowner.audiorecorder.util.AudioManagerHelper
 import com.dimowner.audiorecorder.util.BluetoothDeviceInfo
+import com.dimowner.audiorecorder.util.BluetoothMicState
 import com.dimowner.audiorecorder.util.TimeUtils
 import com.dimowner.audiorecorder.v2.app.adjustWaveformHeights
 import com.dimowner.audiorecorder.v2.app.calculateGridStep
@@ -62,6 +64,8 @@ import com.dimowner.audiorecorder.v2.app.isDescriptionFileWriteSupported
 import com.dimowner.audiorecorder.v2.app.toInfoCombinedText
 import com.dimowner.audiorecorder.v2.audio.AudioRecordingService
 import com.dimowner.audiorecorder.v2.audio.AudioRecordingServiceEvent
+import com.dimowner.audiorecorder.v2.audio.NotEnoughSpaceException
+import com.dimowner.audiorecorder.v2.audio.isOutOfSpace
 import com.dimowner.audiorecorder.v2.audio.RecordingServiceState
 import com.dimowner.audiorecorder.v2.audio.RecordingState
 import com.dimowner.audiorecorder.v2.audio.readDescription
@@ -72,8 +76,10 @@ import com.dimowner.audiorecorder.v2.data.RecordsDataSource
 import com.dimowner.audiorecorder.v2.data.extensions.isLostRecord
 import com.dimowner.audiorecorder.v2.data.extensions.copyFile
 import com.dimowner.audiorecorder.v2.data.model.AudioSource
+import com.dimowner.audiorecorder.v2.data.model.PlaybackSpeed
 import com.dimowner.audiorecorder.v2.data.model.Record
 import com.dimowner.audiorecorder.v2.analytics.AnalyticsTracker
+import com.dimowner.audiorecorder.v2.data.model.isSystemAudioCaptureSupported
 import com.dimowner.audiorecorder.v2.di.qualifiers.IoDispatcher
 import com.dimowner.audiorecorder.v2.di.qualifiers.MainDispatcher
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -108,6 +114,12 @@ class HomeViewModel @Inject constructor(
 
     private var recordingStateJob: Job? = null
     private var recordingEventJob: Job? = null
+
+    // Started/cancelled on the main thread only (see moveToStart)
+    private var moveAnimator: ValueAnimator? = null
+
+    // Guards the "always use Bluetooth mic" auto-enable so it runs once per availability period
+    private var bluetoothAutoEnableRequested = false
 
     private val _state = mutableStateOf(HomeScreenState())
     val state: State<HomeScreenState> = _state
@@ -202,6 +214,7 @@ class HomeViewModel @Inject constructor(
         subscribePlayerUpdates()
 
         // Register AudioManagerHelper and subscribe to Bluetooth mic state
+        _state.value = _state.value.copy(alwaysUseBluetoothMic = prefs.alwaysUseBluetoothMic)
         audioManagerHelper.register()
         viewModelScope.launch {
             audioManagerHelper.bluetoothMicState.collect { bluetoothState ->
@@ -212,7 +225,27 @@ class HomeViewModel @Inject constructor(
                     connectedBluetoothDevices = bluetoothState.connectedDevices,
                     selectedBluetoothDevice = bluetoothState.selectedDevice
                 )
+                autoEnableBluetoothMicIfNeeded(bluetoothState)
             }
+        }
+    }
+
+    /**
+     * Enables Bluetooth mic routing automatically when the "always use" preference is on
+     * and a device becomes available. Attempted once per availability period, so a user
+     * turning the switch off manually is not fought until devices disconnect and reconnect.
+     */
+    private fun autoEnableBluetoothMicIfNeeded(bluetoothState: BluetoothMicState) {
+        if (bluetoothState.isAvailable) {
+            if (prefs.alwaysUseBluetoothMic && !bluetoothState.isEnabled && !bluetoothAutoEnableRequested) {
+                bluetoothAutoEnableRequested = true
+                Timber.d("Auto-enabling Bluetooth mic (always use when available)")
+                viewModelScope.launch {
+                    audioManagerHelper.enableBluetoothMic(true)
+                }
+            }
+        } else {
+            bluetoothAutoEnableRequested = false
         }
     }
 
@@ -289,8 +322,18 @@ class HomeViewModel @Inject constructor(
                         waveformState = pausedWaveformState,
                     )
                 } else if (recState.isRecording()) {
-                    when (recState.recordingState) {
-                        RecordingState.STARTED -> {
+                    // STARTED/RESUMED are overwritten by PROGRESS on the first progress tick
+                    // (~10ms later) and StateFlow conflation may drop them, so detect the
+                    // transition from the previous UI state as well.
+                    val prevBottomBarState = _state.value.bottomBarState
+                    val isStarted = recState.recordingState == RecordingState.STARTED
+                            || (recState.recordingState == RecordingState.PROGRESS
+                            && prevBottomBarState == BottomBarState.READY_TO_START_RECORDING)
+                    val isResumed = recState.recordingState == RecordingState.RESUMED
+                            || (recState.recordingState == RecordingState.PROGRESS
+                            && prevBottomBarState == BottomBarState.PAUSED)
+                    when {
+                        isStarted -> {
                             // Recording just started – initialise UI
                             lastProgressUpdate = 0L
                             _state.value = state.value.copy(
@@ -311,7 +354,7 @@ class HomeViewModel @Inject constructor(
                                 }
                             }
                         }
-                        RecordingState.RESUMED -> {
+                        isResumed -> {
                             // Recording resumed from pause – update BottomBar state without resetting waveform
                             _state.value = _state.value.copy(
                                 bottomBarState = BottomBarState.RECORDING,
@@ -446,7 +489,7 @@ class HomeViewModel @Inject constructor(
             override fun onStopPlay() {
                 _state.value = _state.value.copy(
                     showPause = false,
-                    showStop = false
+                    showStop = false,
                 )
                 moveToStart()
             }
@@ -486,6 +529,8 @@ class HomeViewModel @Inject constructor(
                     }
                 } else {
                     updateState()
+                    // No rename prompt – surface the one-time local storage info now.
+                    maybeShowLocalStorageInfoDialog()
                 }
             }
         }
@@ -551,6 +596,12 @@ class HomeViewModel @Inject constructor(
                 subscribeRecordingServiceEvents(service)
             }
         }
+
+        val audioSource = prefs.settingAudioSource
+        _state.value = _state.value.copy(
+            selectedAudioSource = audioSource,
+            isSystemAudioRecordingSelected = audioSource.isSystemAudio && isSystemAudioCaptureSupported(),
+        )
 
         showLoadingProgress(true)
         viewModelScope.launch(ioDispatcher) {
@@ -623,7 +674,7 @@ class HomeViewModel @Inject constructor(
                         isRecording = _state.value.bottomBarState != BottomBarState.READY_TO_START_RECORDING,
                         waveformDataOffset = 0,
                     ),
-                    startTime = context.getString(R.string.zero_time),
+                    startTime = TimeUtils.formatTimeIntervalHourMinSec2(0),
                     endTime = TimeUtils.formatTimeIntervalHourMinSec2(activeRecord.durationMills),
                     recordName = activeRecord.name,
                     recordDescription = activeRecord.description,
@@ -702,9 +753,21 @@ class HomeViewModel @Inject constructor(
                 }
             } else {
                 withContext(mainDispatcher) {
+                    // Preserve Bluetooth mic state when resetting the screen state,
+                    // otherwise devices detected before this reset never reappear
+                    // (bluetoothMicState is a StateFlow and won't re-emit an unchanged value).
+                    val bluetoothState = audioManagerHelper.bluetoothMicState.value
                     _state.value = HomeScreenState(
                         bottomBarState = bottomBarState,
-                        waveformState = WaveformState()
+                        waveformState = WaveformState(),
+                        isBluetoothMicAvailable = bluetoothState.isAvailable,
+                        isBluetoothMicEnabled = bluetoothState.isEnabled,
+                        bluetoothDeviceName = bluetoothState.deviceName,
+                        connectedBluetoothDevices = bluetoothState.connectedDevices,
+                        selectedBluetoothDevice = bluetoothState.selectedDevice,
+                        alwaysUseBluetoothMic = prefs.alwaysUseBluetoothMic,
+                        // Preserve a pending local-storage info dialog across this full reset.
+//                        showLocalStorageInfoDialog = _state.value.showLocalStorageInfoDialog,
                     )
                 }
             }
@@ -727,13 +790,18 @@ class HomeViewModel @Inject constructor(
         showLoadingProgress(true)
         _state.value = _state.value.copy(isShowImportProgress = true)
         viewModelScope.launch(ioDispatcher) {
+            // Tracks the destination file so a partial copy can be cleaned up on failure.
+            var newFile: File? = null
             try {
                 val parcelFileDescriptor: ParcelFileDescriptor? =
                     context.contentResolver.openFileDescriptor(uri, "r")
                 val fileDescriptor = parcelFileDescriptor?.fileDescriptor
-                val name: String? = DocumentFile.fromSingleUri(context, uri)?.name
+                val sourceDocument = DocumentFile.fromSingleUri(context, uri)
+                val name: String? = sourceDocument?.name
                 if (name != null) {
-                    val newFile: File = fileDataSource.createRecordFile(name)
+                    // Fail fast if the file clearly won't fit, before creating anything on disk.
+                    requireFreeSpaceForImport(sourceDocument.length())
+                    newFile = fileDataSource.createRecordFile(name)
                     if (fileDescriptor != null && copyFile(fileDescriptor, newFile)) {
                         val info = AudioDecoder.readRecordInfo(newFile)
                         val importedDescription = newFile.readDescription()
@@ -767,6 +835,14 @@ class HomeViewModel @Inject constructor(
                         prefs.activeRecordId = id
                         updateState()
                         decodeRecord(id, record.path, record.durationMills)
+                    } else {
+                        // Copy produced no data; surface an error instead of leaving the
+                        // progress indicator spinning forever.
+                        newFile.delete()
+                        withContext(mainDispatcher) {
+                            _state.value = _state.value.copy(isShowImportProgress = false)
+                        }
+                        handleError(context.getString(R.string.error_unable_to_read_sound_file))
                     }
                 } else {
                     withContext(mainDispatcher) {
@@ -776,16 +852,31 @@ class HomeViewModel @Inject constructor(
                 }
             } catch (e: SecurityException) {
                 Timber.e(e)
+                newFile?.delete()
                 withContext(mainDispatcher) {
                     _state.value = _state.value.copy(isShowImportProgress = false)
                 }
                 handleError(context.getString(R.string.error_permission_denied))
-            } catch (e: IOException) {
-                Timber.e(e)
+            } catch (e: NotEnoughSpaceException) {
+                Timber.w(e, "importAudioFile: not enough storage space")
+                newFile?.delete()
                 withContext(mainDispatcher) {
                     _state.value = _state.value.copy(isShowImportProgress = false)
                 }
-                handleError(context.getString(R.string.error_unable_to_read_sound_file))
+                handleError(context.getString(R.string.msg_not_enough_storage_space))
+            } catch (e: IOException) {
+                Timber.e(e)
+                newFile?.delete()
+                withContext(mainDispatcher) {
+                    _state.value = _state.value.copy(isShowImportProgress = false)
+                }
+                // A full disk surfaces here as an ENOSPC IOException from the copy step.
+                val message = if (e.isOutOfSpace()) {
+                    context.getString(R.string.msg_not_enough_storage_space)
+                } else {
+                    context.getString(R.string.error_unable_to_read_sound_file)
+                }
+                handleError(message)
             } catch (e: OutOfMemoryError) {
                 Timber.e(e)
                 withContext(mainDispatcher) {
@@ -805,6 +896,24 @@ class HomeViewModel @Inject constructor(
                 }
                 handleError(ex)
             }
+        }
+    }
+
+    /**
+     * Throws [NotEnoughSpaceException] when the device clearly can't hold a [sourceSizeBytes] copy,
+     * so the import fails fast before creating a partial file. Skipped when either the source size
+     * or the free space is unknown (non-positive), leaving the copy step to surface a real ENOSPC.
+     */
+    private fun requireFreeSpaceForImport(sourceSizeBytes: Long) {
+        if (sourceSizeBytes <= 0) return
+        val available = try {
+            fileDataSource.getAvailableSpace()
+        } catch (e: Exception) {
+            Timber.w(e, "importAudioFile: could not read available space")
+            return
+        }
+        if (available in 1 until sourceSizeBytes) {
+            throw NotEnoughSpaceException()
         }
     }
 
@@ -1077,14 +1186,30 @@ class HomeViewModel @Inject constructor(
         audioPlayer.stop()
     }
 
+    /**
+     * Applies the rate picked in the playback speed menu to the player right away, so it takes
+     * effect mid-playback, and remembers it for the tracks played next.
+     */
+    fun handlePlaybackSpeedClick(speed: PlaybackSpeed) {
+        audioPlayer.setPlaybackSpeed(speed.value)
+        _state.value = _state.value.copy(playbackSpeed = speed)
+    }
+
     // - If is playing, stop playback
     // - Start recording service
-    fun handleStartRecordingClick() {
+    /**
+     * @param projectionResultCode result code of the MediaProjection consent dialog
+     * @param projectionData its payload, non-null only when the user granted system audio capture
+     */
+    fun handleStartRecordingClick(
+        projectionResultCode: Int = Activity.RESULT_CANCELED,
+        projectionData: Intent? = null,
+    ) {
         audioPlayer.stop()
         val context: Context = getApplication<Application>().applicationContext
 
         // Start the recording service
-        AudioRecordingService.startServiceForeground(context)
+        AudioRecordingService.startServiceForeground(context, projectionResultCode, projectionData)
     }
 
     fun handlePauseRecordingClick() {
@@ -1144,18 +1269,24 @@ class HomeViewModel @Inject constructor(
     }
 
     fun moveToStart() {
-        val moveAnimator = ValueAnimator.ofObject(
-            LongEvaluator(),
-            _state.value.waveformState.progressMills,
-            0L
-        )
-        moveAnimator.interpolator = DecelerateInterpolator()
-        moveAnimator.duration = ANIMATION_DURATION
-        moveAnimator.addUpdateListener { animation: ValueAnimator ->
-            val moveValMills = animation.animatedValue as Long
-            handleSeekProgress(moveValMills)
+        // Player callbacks are delivered on the thread that called the player (which may be an
+        // IO coroutine), and ValueAnimator may only be started on a Looper thread.
+        viewModelScope.launch(mainDispatcher) {
+            moveAnimator?.cancel()
+            moveAnimator = ValueAnimator.ofObject(
+                LongEvaluator(),
+                _state.value.waveformState.progressMills,
+                0L
+            ).apply {
+                interpolator = DecelerateInterpolator()
+                duration = ANIMATION_DURATION
+                addUpdateListener { animation: ValueAnimator ->
+                    val moveValMills = animation.animatedValue as Long
+                    handleSeekProgress(moveValMills)
+                }
+                start()
+            }
         }
-        moveAnimator.start()
     }
 
     fun showLoadingProgress(value: Boolean) {
@@ -1198,9 +1329,10 @@ class HomeViewModel @Inject constructor(
                 }
             }
             HomeScreenAction.OnStopClick -> handlePlaybackStopClick()
+            is HomeScreenAction.OnPlaybackSpeedClick -> handlePlaybackSpeedClick(action.speed)
             //Recording
-            HomeScreenAction.OnStartRecordingClick -> {
-                handleStartRecordingClick()
+            is HomeScreenAction.OnStartRecordingClick -> {
+                handleStartRecordingClick(action.projectionResultCode, action.projectionData)
             }
             HomeScreenAction.OnPauseRecordingClick -> handlePauseRecordingClick()
             HomeScreenAction.OnResumeRecordingClick -> handleResumeRecordingClick()
@@ -1215,12 +1347,25 @@ class HomeViewModel @Inject constructor(
             is HomeScreenAction.SelectBluetoothDevice -> {
                 audioManagerHelper.selectBluetoothDevice(action.device)
             }
+            is HomeScreenAction.SetAlwaysUseBluetoothMic -> {
+                prefs.alwaysUseBluetoothMic = action.enabled
+                _state.value = _state.value.copy(alwaysUseBluetoothMic = action.enabled)
+                if (action.enabled && _state.value.isBluetoothMicAvailable
+                    && !_state.value.isBluetoothMicEnabled
+                ) {
+                    bluetoothAutoEnableRequested = true
+                    viewModelScope.launch {
+                        audioManagerHelper.enableBluetoothMic(true)
+                    }
+                }
+            }
             HomeScreenAction.DismissLostRecordsDialog -> dismissLostRecordsDialog()
             is HomeScreenAction.DismissRenameAfterRecordingDialog -> {
                 dismissRenameAfterRecordingDialog(action.dontAskAgain)
             }
             HomeScreenAction.RestoreBrokenRecord -> restoreBrokenRecord()
             HomeScreenAction.DismissBrokenRecordDialog -> dismissBrokenRecordDialog()
+            HomeScreenAction.DismissLocalStorageInfoDialog -> dismissLocalStorageInfoDialog()
             HomeScreenAction.ShowDescriptionDialog -> showDescriptionDialog()
             is HomeScreenAction.SaveActiveRecordDescription -> saveActiveRecordDescription(action.description, action.writeToFile)
             HomeScreenAction.DismissDescriptionDialog -> dismissDescriptionDialog()
@@ -1228,7 +1373,13 @@ class HomeViewModel @Inject constructor(
     }
 
     private fun dismissRenameAfterRecordingDialog(dontAskAgain: Boolean) {
-        _state.value = _state.value.copy(showRenameAfterRecordingDialog = false)
+        // Surface the one-time local storage info once the rename prompt is out of the way,
+        // so the two dialogs are shown sequentially rather than stacked.
+//        val showLocalStorageInfo = !prefs.isLocalStorageInfoShown
+        _state.value = _state.value.copy(
+            showRenameAfterRecordingDialog = false,
+//            showLocalStorageInfoDialog = showLocalStorageInfo,
+        )
         if (dontAskAgain) {
             prefs.askToRenameAfterRecordingStopped = false
         }
@@ -1317,6 +1468,23 @@ class HomeViewModel @Inject constructor(
         )
     }
 
+    private fun dismissLocalStorageInfoDialog() {
+//        prefs.isLocalStorageInfoShown = true
+//        _state.value = _state.value.copy(showLocalStorageInfoDialog = false)
+    }
+
+    /**
+     * Shows the one-time info that recordings are stored locally only and will be lost if the
+     * app is deleted or its data is reset. Triggered right after the first recording is saved.
+     */
+    private suspend fun maybeShowLocalStorageInfoDialog() {
+//        if (!prefs.isLocalStorageInfoShown) {
+//            withContext(mainDispatcher) {
+//                _state.value = _state.value.copy(showLocalStorageInfoDialog = true)
+//            }
+//        }
+    }
+
     private fun emitEvent(event: HomeScreenEvent) {
         viewModelScope.launch {
             _event.emit(event)
@@ -1325,8 +1493,21 @@ class HomeViewModel @Inject constructor(
 
     override fun onCleared() {
         super.onCleared()
+        moveAnimator?.cancel()
+        moveAnimator = null
         try {
-            audioManagerHelper.release()
+            // AudioManagerHelper is a singleton and the recording foreground service keeps
+            // capturing from the Bluetooth mic after the UI is destroyed. A full release()
+            // here clears the communication device and resets the routing state, so on the
+            // next launch the mic switch would show as off even though the Bluetooth
+            // recording is still running. While a recording is in progress, only stop
+            // observing device changes and leave the routing untouched.
+            val isRecordingActive = recordingService?.recordingState?.value?.isRecording() == true
+            if (isRecordingActive) {
+                audioManagerHelper.unregister()
+            } else {
+                audioManagerHelper.release()
+            }
         } catch (e: Exception) {
             Timber.e(e, "Error releasing AudioManagerHelper")
         }
@@ -1358,6 +1539,8 @@ data class HomeScreenState(
     val bottomBarState: BottomBarState = BottomBarState.READY_TO_START_RECORDING,
     val showPause: Boolean = false,
     val showStop: Boolean = false,
+    /** The playback rate selected in the speed menu and applied to the player. */
+    val playbackSpeed: PlaybackSpeed = PlaybackSpeed.NORMAL,
     val isSeek: Boolean = false,
     val isDeleteRecordingProgressRequested: Boolean = false,
     // Bluetooth mic state
@@ -1366,8 +1549,15 @@ data class HomeScreenState(
     val bluetoothDeviceName: String? = null,
     val connectedBluetoothDevices: List<BluetoothDeviceInfo> = emptyList(),
     val selectedBluetoothDevice: BluetoothDeviceInfo? = null,
+    val alwaysUseBluetoothMic: Boolean = false,
     // Audio source selection
     val selectedAudioSource: AudioSource = AudioSource.MIC,
+    /**
+     * Whether the next recording captures system audio rather than a microphone. The screen needs
+     * this to know it must collect MediaProjection consent before starting, which only an
+     * Activity can do.
+     */
+    val isSystemAudioRecordingSelected: Boolean = false,
     // Lost records
     val showLostRecordsDialog: Boolean = false,
     val lostRecord: Record? = null,
@@ -1381,6 +1571,8 @@ data class HomeScreenState(
     // Broken record detection and restoration
     val showBrokenRecordDialog: Boolean = false,
     val brokenRecord: Record? = null,
+    // One-time info that recordings are stored locally only
+//    val showLocalStorageInfoDialog: Boolean = false,
 ) {
     fun isRecording(): Boolean {
         return this.bottomBarState == BottomBarState.RECORDING || this.bottomBarState == BottomBarState.PAUSED
@@ -1410,7 +1602,15 @@ sealed class HomeScreenAction {
     data object OnPlayClick : HomeScreenAction()
     data object OnPauseClick : HomeScreenAction()
     data object OnStopClick : HomeScreenAction()
-    data object OnStartRecordingClick : HomeScreenAction()
+    data class OnPlaybackSpeedClick(val speed: PlaybackSpeed) : HomeScreenAction()
+    /**
+     * [projectionData] carries MediaProjection consent and is set only when the recording is to
+     * capture system audio; microphone recordings leave it null.
+     */
+    data class OnStartRecordingClick(
+        val projectionResultCode: Int = Activity.RESULT_CANCELED,
+        val projectionData: Intent? = null,
+    ) : HomeScreenAction()
     data object OnPauseRecordingClick : HomeScreenAction()
     data object OnResumeRecordingClick : HomeScreenAction()
     data object OnStopRecordingClick : HomeScreenAction()
@@ -1420,10 +1620,12 @@ sealed class HomeScreenAction {
     data class OnProgressBarStateChange(val value: Float) : HomeScreenAction()
     data class SetBluetoothMicEnabled(val enabled: Boolean) : HomeScreenAction()
     data class SelectBluetoothDevice(val device: BluetoothDeviceInfo?) : HomeScreenAction()
+    data class SetAlwaysUseBluetoothMic(val enabled: Boolean) : HomeScreenAction()
     data object DismissLostRecordsDialog : HomeScreenAction()
     data class DismissRenameAfterRecordingDialog(val dontAskAgain: Boolean) : HomeScreenAction()
     data object RestoreBrokenRecord : HomeScreenAction()
     data object DismissBrokenRecordDialog : HomeScreenAction()
+    data object DismissLocalStorageInfoDialog : HomeScreenAction()
     data object ShowDescriptionDialog : HomeScreenAction()
     data class SaveActiveRecordDescription(val description: String, val writeToFile: Boolean) : HomeScreenAction()
     data object DismissDescriptionDialog : HomeScreenAction()

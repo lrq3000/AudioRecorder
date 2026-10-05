@@ -61,9 +61,11 @@
 	<string name="msg_record_renamed">Запис перейменовано на \'%1$s\'</string>
 	<string name="msg_recording_saved_with_name">Запис збережено з назвою: %s</string>
 	<string name="msg_save_recording_failed">Не вдалося зберегти запис.</string>
+	<string name="msg_not_enough_storage_space">Недостатньо місця для зберігання. Звільніть місце та спробуйте ще раз.</string>
 	<string name="msg_file_operation_failed">Операція з файлом не вдалася. Спробуйте ще раз</string>
 	<string name="msg_name_cannot_be_empty">Назва не може бути порожньою</string>
 	<string name="msg_permission_microphone_denied">Для запису звуку необхідний дозвіл на використання мікрофона. Надайте дозвіл, щоб скористатися цією функцією.</string>
+	<string name="msg_permission_system_audio_denied">Дозвіл на запис системного звуку не надано. Надайте його, щоб записувати звук з інших застосунків.</string>
 	<string name="action_undo">СКАСУВАТИ</string>
 	<string name="msg_operation_failed_generic">Операція не вдалася</string>
 
@@ -104,7 +106,6 @@
 	<string name="recording_progress">Запис&#8230;</string>
 	<string name="recording_paused">Пауза</string>
 	<string name="playback">Відтворення: %s</string>
-	<string name="zero_time">00:00</string>
 	<string name="empty">Пусто</string>
 	<string name="items_selected">%d вибрано</string>
 	<string name="no_records">Нема записів</string>
@@ -130,6 +131,7 @@
 	<string name="info">Інформація</string>
 	<string name="rename">Перейменувати</string>
 	<string name="dont_ask_again">Більше не показувати</string>
+	<string name="dont_show_next_time">Не показувати наступного разу</string>
 	<string name="open_with">Відкрити з допомогою&#8230;</string>
 	<string name="save_as">Зберегти як&#8230;</string>
 	<string name="downloading">Копіювання: %s</string>
@@ -145,8 +147,8 @@
 		<item quantity="few">%d записи успішно переміщено</item>
 		<item quantity="many">%d записів успішно переміщено</item>
 	</plurals>
-	<string name="downloading_success_and_fail_count">%d записів успішно скопійовано, та %d не вдалося скопіювати</string>
-	<string name="moving_records_success_and_fail_count">%d записів успішно переміщено, та %d не вдалося перемістити</string>
+	<string name="downloading_success_and_fail_count">%1$d записів успішно скопійовано, та %2$d не вдалося скопіювати</string>
+	<string name="moving_records_success_and_fail_count">%1$d записів успішно переміщено, та %2$d не вдалося перемістити</string>
 	<string name="downloading_success">%s скопійовано в папку \'Downloads\'</string>
 	<string name="move_record_success">%s переміщено в приватну папку додатка</string>
 	<plurals name="downloading_failed_count">
@@ -183,9 +185,14 @@
 	<string name="by_duration">Тривалість (найдовші)</string>
     <string name="by_duration_desc">Тривалість (найкоротші)</string>
     <string name="filter">Фільтр</string>
-	<string name="filter_clear">Очистити</string>
+	<string name="clear">Очистити</string>
 	<string name="filter_dismiss">Сховати фільтр</string>
 	<string name="filter_no_options">Немає записів для фільтрації</string>
+	<string name="search">Пошук</string>
+	<string name="search_records_hint">Пошук записів</string>
+	<string name="search_close">Закрити пошук</string>
+	<string name="search_clear">Очистити пошук</string>
+	<string name="no_search_results">Немає записів за запитом «%1$s»</string>
 	<string name="need_write_permission">Додатку потрібно дозвіл на запис в публічне сховище. Якщо не дозволити, записи будуть зберігатися в приватному каталозі додатка</string>
 	<string name="rec_name">Назва:</string>
 	<string name="rec_format">Формат:</string>
@@ -245,11 +252,9 @@
 		\n<b>Wav</b> - формат нестиснених аудіо даних. Займає набагато більше місця, ніж інші формати. Використовується для конкретних цілей.
 		\n<b>3gp</b> - мультимедійний контейнер, розроблений для послуг мобільного зв\'язку. Використовуйте його, якщо вам потрібно заощадити місце.
 		</string>
-	<string name="info_format_html"><![CDATA[
-<b>M4a</b> - формат кодується аудіо кодеком AAC, має хорошу якість і невеликий розмір. <b>(рекомендовано)</b>
-<br/><br/><b>Wav</b> - формат нестиснених аудіо даних. Займає набагато більше місця, ніж інші формати. Використовується для конкретних цілей.
-<br/><b>3gp</b> - мультимедійний контейнер, розроблений для послуг мобільного зв\'язку. Використовуйте його, якщо вам потрібно заощадити місце.
-]]></string>
+	<string name="info_format_m4a_html"><![CDATA[<b>M4a</b> - формат кодується аудіо кодеком AAC, має хорошу якість і невеликий розмір. <b>(рекомендовано)</b>]]></string>
+	<string name="info_format_wav_html"><![CDATA[<b>Wav</b> - формат нестиснених аудіо даних. Займає набагато більше місця, ніж інші формати. Використовується для конкретних цілей.]]></string>
+	<string name="info_format_3gp_html"><![CDATA[<b>3gp</b> - мультимедійний контейнер, розроблений для послуг мобільного зв\'язку. Використовуйте його, якщо вам потрібно заощадити місце.]]></string>
 
 	<string name="info_frequency"><b>Частота дискретизації</b> - це кількість вибірок даних в одиницю часу, взятих з безперервного сигналу.
 		\n<b>48кГц</b> частота, використовується в DVD.
@@ -258,13 +263,11 @@
 		\n<b>8кГц</b> ця частота має меншу пропускну здатність, ніж сучасні телефонні системи. Не підходить для серйозних завдань запису.
 		</string>
 
-	<string name="info_frequency_html"><![CDATA[
-<b>Частота дискретизації</b> - це кількість вибірок даних в одиницю часу, взятих з безперервного сигналу.
-<br/><br/><b>48кГц</b> частота, використовується в DVD.
-<br/><b>44,1кГц</b> частота, використовується в Аудіо CD. <b>(рекомендовано)</b>
-<br/><b>22кГц</b> популярна частота для низьких бітрейтів, наприклад в 64 кбіт/с.
-<br/><b>8кГц</b> ця частота має меншу пропускну здатність, ніж сучасні телефонні системи. Не підходить для серйозних завдань запису.
-]]></string>
+	<string name="info_frequency_header_html"><![CDATA[<b>Частота дискретизації</b> - це кількість вибірок даних в одиницю часу, взятих з безперервного сигналу.]]></string>
+	<string name="info_frequency_48khz_html"><![CDATA[<b>48кГц</b> частота, використовується в DVD.]]></string>
+	<string name="info_frequency_44_1khz_html"><![CDATA[<b>44,1кГц</b> частота, використовується в Аудіо CD. <b>(рекомендовано)</b>]]></string>
+	<string name="info_frequency_22khz_html"><![CDATA[<b>22кГц</b> популярна частота для низьких бітрейтів, наприклад в 64 кбіт/с.]]></string>
+	<string name="info_frequency_8khz_html"><![CDATA[<b>8кГц</b> ця частота має меншу пропускну здатність, ніж сучасні телефонні системи. Не підходить для серйозних завдань запису.]]></string>
 
 	<string name="info_bitrate"><b>Бітрейт</b> - це кількість даних на секунду звуку. Безпосередньо впливає на якість і розмір запису.
 		\n<b>256 кбіт/с</b> бітрейт звуку високої якості.
@@ -274,14 +277,12 @@
 		\n<b>48 кбіт/с</b> як правило, прийнятний тільки для запису голосу.
 		</string>
 
-	<string name="info_bitrate_html"><![CDATA[
-<b>Бітрейт</b> - це кількість даних на секунду звуку. Безпосередньо впливає на якість і розмір запису.
-<br/><br/><b>256 кбіт/с</b> бітрейт звуку високої якості.
-<br/><b>192 кбіт/с</b> бітрейт звуку хорошої якості.
-<br/><b>128 кбіт/с</b> бітрейт звуку середньої якості. Популярний бітрейт для подкастів. <b>(рекомендовано)</b>
-<br/><b>96 кбіт/с</b> зазвичай використовується для запису голосу або стрімінгу в низькій якості.
-<br/><b>48 кбіт/с</b> як правило, прийнятний тільки для запису голосу.
-]]></string>
+	<string name="info_bitrate_header_html"><![CDATA[<b>Бітрейт</b> - це кількість даних на секунду звуку. Безпосередньо впливає на якість і розмір запису.]]></string>
+	<string name="info_bitrate_256kbps_html"><![CDATA[<b>256 кбіт/с</b> бітрейт звуку високої якості.]]></string>
+	<string name="info_bitrate_192kbps_html"><![CDATA[<b>192 кбіт/с</b> бітрейт звуку хорошої якості.]]></string>
+	<string name="info_bitrate_128kbps_html"><![CDATA[<b>128 кбіт/с</b> бітрейт звуку середньої якості. Популярний бітрейт для подкастів. <b>(рекомендовано)</b>]]></string>
+	<string name="info_bitrate_96kbps_html"><![CDATA[<b>96 кбіт/с</b> зазвичай використовується для запису голосу або стрімінгу в низькій якості.]]></string>
+	<string name="info_bitrate_48kbps_html"><![CDATA[<b>48 кбіт/с</b> як правило, прийнятний тільки для запису голосу.]]></string>
 
 	<string name="info_channels">
 		<b>Стерео</b> звук записується на два окремих канали. Це означає, що кожен стереодинамік має свій окремий звуковий сигнал. <b>(рекомендовано)</b>
@@ -297,6 +298,7 @@
 <br/><br/><b>Мікрофон:</b> Стандартне налаштування мікрофона. Найкраще для звичайного запису. Автоматично балансує гучність голосу, зберігаючи природну атмосферу оточення.
 <br/><br/><b>Голосовий зв\'язок:</b> Спеціально розроблено для чіткості людського голосу. Найкраще для Bluetooth, оскільки активує шумо- і ехоподавлення.
 <br/><br/><b>Необроблений:</b> Захоплює необроблений звук без будь-яких системних фільтрів або налаштувань. Без видалення фонового шуму та вирівнювання гучності. Найкраще для Hi-Fi або професійного використання.
+<br/><br/><b>Системний звук:</b> Записує звук з інших застосунків замість мікрофона. Застосунки можуть заборонити запис, тому захищений вміст і дзвінки залишаються беззвучними.
 ]]></string>
 	<string name="info_3gp"><b>3gp</b> - мультимедійний контейнер, розроблений для послуг мобільного зв\'язку. Використовуйте його, якщо вам потрібно заощадити місце.</string>
 	<string name="info_m4a"><b>M4a</b> - формат кодується аудіо кодеком AAC, має хорошу якість і невеликий розмір. <b>(рекомендовано)</b></string>
@@ -343,6 +345,8 @@
 	<string name="error_permission_denied">Доступ заборонено</string>
 	<string name="error_process_waveform">Не вдалося відобразити аудіофайл</string>
 	<string name="error_lost_records">Деякі ваші записи були видалені або переміщені</string>
+	<string name="local_storage_info_title">Записи зберігаються на пристрої</string>
+	<string name="local_storage_info_message">Записи не резервуються в хмарі. Видалення додатка або його даних призведе до їх безповоротного видалення.</string>
 	<string name="error_no_available_space">Немає доступної пам\'яті</string>
 	<string name="error_failed_access_to_storage">Не вдалося отримати доступ до сховища файлів</string>
 	<string name="error_on_recording">Помилка при запису</string>
@@ -366,6 +370,8 @@
 	<string name="button_resume">Відновити</string>
 	<string name="button_pause">Пауза</string>
 	<string name="button_finish">Фініш</string>
+	<string name="playback_speed_value">%1$sx</string>
+	<string name="playback_speed_value_description">Швидкість відтворення %1$s</string>
 
 	<string name="legacy_app">Застарілий додаток</string>
 	<string name="legacy_app_subtitle">Перейти до старого інтерфейсу додатка</string>
@@ -419,12 +425,14 @@
 
 	<string name="app_widget_description">Почати запис віджет</string>
 
-    <string name="bluetooth_microphone_available">Доступний Bluetooth мікрофон</string>
+    <string name="bluetooth_microphone_available">Доступний Bluetooth-мікрофон</string>
+    <string name="bluetooth_always_use_when_available">Завжди використовувати Bluetooth-мікрофон, коли він доступний</string>
     <string name="audio_source">Джерело звуку</string>
     <string name="audio_source_default">За замовчуванням</string>
     <string name="audio_source_mic">Мікрофон</string>
     <string name="audio_source_voice_communication">Голосовий зв\'язок</string>
     <string name="audio_source_unprocessed">Необроблений</string>
+    <string name="audio_source_system">Системний звук</string>
 
     <!-- Database migration -->
     <string name="database_update_in_progress">Виконується оновлення бази даних</string>
@@ -447,4 +455,38 @@
     <string name="duration_hours_and_minutes">%1$dг %2$dхв</string>
     <string name="duration_minutes">%1$dхв</string>
     <string name="dropdown_menu">Меню</string>
+
+    <!-- Name format constructor -->
+    <string name="name_format_edit">Змінити формат назви</string>
+    <string name="name_format_preview">Попередній перегляд</string>
+    <string name="name_format_preview_empty">Додайте елементи, щоб скласти назву</string>
+    <string name="name_format_your_format">Ваш формат</string>
+    <string name="name_format_empty_hint">Натискайте на елементи нижче, щоб додати їх до формату.</string>
+    <string name="name_format_remove_element">Видалити елемент</string>
+    <string name="name_format_date_and_time">Дата й час</string>
+    <string name="name_format_other">Лічильник і текст</string>
+    <string name="name_format_dividers">Роздільники</string>
+    <string name="name_format_presets">Шаблони</string>
+    <string name="name_format_add_text">Додати текст</string>
+    <!-- Name format element labels -->
+    <string name="name_format_timestamp">Мітка часу</string>
+    <string name="name_format_year">Рік</string>
+    <string name="name_format_month">Місяць</string>
+    <string name="name_format_month_name">Назва місяця</string>
+    <string name="name_format_day">День</string>
+    <string name="name_format_day_of_week">День тижня</string>
+    <string name="name_format_hour_24">Години (24 год)</string>
+    <string name="name_format_hour_12">Години (12 год)</string>
+    <string name="name_format_am_pm">AM/PM</string>
+    <string name="name_format_minute">Хвилини</string>
+    <string name="name_format_second">Секунди</string>
+    <string name="name_format_counter">Лічильник</string>
+    <string name="name_format_text">Текст</string>
+    <!-- Name format preset labels -->
+    <string name="name_format_preset_timestamp">Мітка часу</string>
+    <string name="name_format_preset_date">Дата</string>
+    <string name="name_format_preset_date_us">Дата США</string>
+    <string name="name_format_preset_date_iso8601">Дата ISO 8601</string>
+    <string name="name_format_preset_date_long">Дата повністю</string>
+    <string name="name_format_preset_custom">Власний</string>
 </resources>

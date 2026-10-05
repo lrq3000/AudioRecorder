@@ -34,9 +34,11 @@
 	<string name="msg_record_renamed">Enregistrement renommé en \'%1$s\'</string>
 	<string name="msg_recording_saved_with_name">Enregistrement sauvegardé sous le nom : %s</string>
 	<string name="msg_save_recording_failed">Échec de la sauvegarde de l\'enregistrement.</string>
+	<string name="msg_not_enough_storage_space">Espace de stockage insuffisant. Libérez de l\'espace et réessayez.</string>
 	<string name="msg_file_operation_failed">Opération de fichier échouée. Veuillez réessayer</string>
 	<string name="msg_name_cannot_be_empty">Le nom ne peut pas être vide</string>
 	<string name="msg_permission_microphone_denied">La permission du microphone est requise pour enregistrer l\'audio. Veuillez accorder la permission pour utiliser cette fonctionnalité.</string>
+	<string name="msg_permission_system_audio_denied">L\'autorisation de capturer l\'audio du système n\'a pas été accordée. Accordez-la pour enregistrer ce que diffusent les autres applications.</string>
 	<string name="action_undo">ANNULER</string>
 	<string name="msg_operation_failed_generic">L\'opération a échoué</string>
 
@@ -96,7 +98,6 @@
 	<string name="recording_progress">Enregistrement&#8230;</string>
 	<string name="recording_paused">En pause</string>
 	<string name="playback">Lecture : %s</string>
-	<string name="zero_time">00:00</string>
 	<string name="empty">Vide</string>
 	<string name="items_selected">%d sélectionné</string>
 	<string name="no_records">Pas d\'enregistrements</string>
@@ -120,6 +121,7 @@
 	<string name="info">Information</string>
 	<string name="rename">Renommer</string>
 	<string name="dont_ask_again">Ne pas me redemander</string>
+	<string name="dont_show_next_time">Ne pas afficher la prochaine fois</string>
 	<string name="open_with">Ouvrir avec&#8230;</string>
 	<string name="save_as">Enregistrer sous&#8230;</string>
 	<string name="downloading">Copie : %s</string>
@@ -131,8 +133,8 @@
 		<item quantity="one">%d enregistrement déplacé avec succès</item>
 		<item quantity="other">%d enregistrements déplacés avec succès</item>
 	</plurals>
-	<string name="downloading_success_and_fail_count">%d enregistrements copiés avec succès et %d ont échoué</string>
-	<string name="moving_records_success_and_fail_count">%d enregistrements déplacés avec succès et %d ont échoué</string>
+	<string name="downloading_success_and_fail_count">%1$d enregistrements copiés avec succès et %2$d ont échoué</string>
+	<string name="moving_records_success_and_fail_count">%1$d enregistrements déplacés avec succès et %2$d ont échoué</string>
 	<string name="downloading_success">%s copié dans le dossier \'Downloads\'</string>
 	<string name="move_record_success">%s déplacé dans le dossier privé de l\'application</string>
 	<plurals name="downloading_failed_count">
@@ -165,9 +167,14 @@
 	<string name="by_duration">Par durée (le plus long)</string>
     <string name="by_duration_desc">Par durée (le plus court)</string>
     <string name="filter">Filtrer</string>
-	<string name="filter_clear">Effacer</string>
+	<string name="clear">Effacer</string>
 	<string name="filter_dismiss">Fermer le filtre</string>
 	<string name="filter_no_options">Aucun enregistrement à filtrer</string>
+	<string name="search">Rechercher</string>
+	<string name="search_records_hint">Rechercher des enregistrements</string>
+	<string name="search_close">Fermer la recherche</string>
+	<string name="search_clear">Effacer la recherche</string>
+	<string name="no_search_results">Aucun enregistrement trouvé pour « %1$s »</string>
 	<string name="need_write_permission">L\'application nécessite la permission d\'accéder au stockage public. Si non autorisé, les enregistrements seront stockés dans le dossier privé de l\'application</string>
 	<string name="rec_name">Nom :</string>
 	<string name="rec_format">Format :</string>
@@ -227,11 +234,9 @@
 		\n<b>Wav</b> : format audio non compressé. Prend plus de place que les autres formats. Il est nécessaire pour des cas spécifiques.
 		\n<b>3gp</b> : format multimédia développé pour les communications téléphoniques. Utilisez ceci si vous avez besoin de sauver de l\'espace.
 	</string>
-	<string name="info_format_html"><![CDATA[
-<b>M4a</b> : encodé avec le codec audio AAC, possède une bonne qualité pour une petite taille. <b>(recommandé)</b>
-<br/><br/><b>Wav</b> : format audio non compressé. Prend plus de place que les autres formats. Il est nécessaire pour des cas spécifiques.
-<br/><b>3gp</b> : format multimédia développé pour les communications téléphoniques. Utilisez ceci si vous avez besoin de sauver de l\'espace.
-]]></string>
+	<string name="info_format_m4a_html"><![CDATA[<b>M4a</b> : encodé avec le codec audio AAC, possède une bonne qualité pour une petite taille. <b>(recommandé)</b>]]></string>
+	<string name="info_format_wav_html"><![CDATA[<b>Wav</b> : format audio non compressé. Prend plus de place que les autres formats. Il est nécessaire pour des cas spécifiques.]]></string>
+	<string name="info_format_3gp_html"><![CDATA[<b>3gp</b> : format multimédia développé pour les communications téléphoniques. Utilisez ceci si vous avez besoin de sauver de l\'espace.]]></string>
 
 	<string name="info_frequency">Le <b>taux d\'échantillonnage</b> est le nombre d\'échantillons audio enregistrés par seconde.
 		\n<b>48 kHz</b> : utilisé par les DVD.
@@ -240,13 +245,11 @@
 		\n<b>8 kHz</b> : taux d\'échantillonnage ayant moins de bande passante que la plupart des systèmes téléphoniques modernes. Inadapté à toute utilisation sérieuse.
 	</string>
 
-	<string name="info_frequency_html"><![CDATA[
-Le <b>taux d\'échantillonnage</b> est le nombre d\'échantillons audio enregistrés par seconde.
-<br/><br/><b>48 kHz</b> : utilisé par les DVD.
-<br/><b>44,1 kHz</b> : utilisé par les CD audio. <b>(recommandé)</b>
-<br/><b>22 kHz</b> : taux d\'échantillonnage populaire pour les débits binaires faibles comme le 64 kbps.
-<br/><b>8 kHz</b> : taux d\'échantillonnage ayant moins de bande passante que la plupart des systèmes téléphoniques modernes. Inadapté à toute utilisation sérieuse.
-]]></string>
+	<string name="info_frequency_header_html"><![CDATA[Le <b>taux d\'échantillonnage</b> est le nombre d\'échantillons audio enregistrés par seconde.]]></string>
+	<string name="info_frequency_48khz_html"><![CDATA[<b>48 kHz</b> : utilisé par les DVD.]]></string>
+	<string name="info_frequency_44_1khz_html"><![CDATA[<b>44,1 kHz</b> : utilisé par les CD audio. <b>(recommandé)</b>]]></string>
+	<string name="info_frequency_22khz_html"><![CDATA[<b>22 kHz</b> : taux d\'échantillonnage populaire pour les débits binaires faibles comme le 64 kbps.]]></string>
+	<string name="info_frequency_8khz_html"><![CDATA[<b>8 kHz</b> : taux d\'échantillonnage ayant moins de bande passante que la plupart des systèmes téléphoniques modernes. Inadapté à toute utilisation sérieuse.]]></string>
 
 	<string name="info_bitrate">Le <b>débit binaire</b> est la taille des données par seconde de son. Cela affecte directement la qualité sonore et la taille de l\'enregistrement.
 		\n<b>256 kbps</b> : débit de bonne qualité.
@@ -256,14 +259,12 @@ Le <b>taux d\'échantillonnage</b> est le nombre d\'échantillons audio enregist
 		\n<b>48 kbps</b> : généralement uniquement utilisable pour les discours.
 	</string>
 
-	<string name="info_bitrate_html"><![CDATA[
-Le <b>débit binaire</b> est la taille des données par seconde de son. Cela affecte directement la qualité sonore et la taille de l\'enregistrement.
-<br/><br/><b>256 kbps</b> : débit de bonne qualité.
-<br/><b>192 kbps</b> : débit de qualité moyenne.
-<br/><b>128 kbps</b> : débit de qualité intermédiaire. Débit commun pour les podcasts. <b>(recommandé)</b>
-<br/><b>96 kbps</b> : généralement utilisé pour des discours ou de la diffusion en temps réel de basse qualité.
-<br/><b>48 kbps</b> : généralement uniquement utilisable pour les discours.
-]]></string>
+	<string name="info_bitrate_header_html"><![CDATA[Le <b>débit binaire</b> est la taille des données par seconde de son. Cela affecte directement la qualité sonore et la taille de l\'enregistrement.]]></string>
+	<string name="info_bitrate_256kbps_html"><![CDATA[<b>256 kbps</b> : débit de bonne qualité.]]></string>
+	<string name="info_bitrate_192kbps_html"><![CDATA[<b>192 kbps</b> : débit de qualité moyenne.]]></string>
+	<string name="info_bitrate_128kbps_html"><![CDATA[<b>128 kbps</b> : débit de qualité intermédiaire. Débit commun pour les podcasts. <b>(recommandé)</b>]]></string>
+	<string name="info_bitrate_96kbps_html"><![CDATA[<b>96 kbps</b> : généralement utilisé pour des discours ou de la diffusion en temps réel de basse qualité.]]></string>
+	<string name="info_bitrate_48kbps_html"><![CDATA[<b>48 kbps</b> : généralement uniquement utilisable pour les discours.]]></string>
 
 	<string name="info_channels"><b>Stéréo</b> : deux canaux séparés sont enregistrés. Cela signifie que chaque haut-parleur stéréo produit un signal différent. <b>(recommandé)</b>
 		\n<b>Mono</b> : un seul canal est enregistré. Il peut être écouté sur différents haut-parleurs, mais chaque haut-parleur produira le même signal.
@@ -278,6 +279,7 @@ Le <b>débit binaire</b> est la taille des données par seconde de son. Cela aff
 <br/><br/><b>Microphone :</b> Le réglage standard du microphone. Idéal pour un enregistrement général. Il équilibre automatiquement le volume de la voix tout en capturant l\'atmosphère naturelle de l\'environnement.
 <br/><br/><b>Communication vocale :</b> Spécialement conçu pour la clarté de la voix humaine. Idéal pour le Bluetooth car il active la suppression du bruit et de l\'écho.
 <br/><br/><b>Non traité :</b> Capture l\'audio brut sans aucun filtre ni réglage système. Sans suppression du bruit de fond ni nivellement du volume. Idéal pour une utilisation haute-fidélité ou professionnelle.
+<br/><br/><b>Audio du système :</b> Enregistre ce que diffusent les autres applications au lieu du microphone. Les applications peuvent refuser d\'être enregistrées, le contenu protégé et les appels restent donc silencieux.
 ]]></string>
 	<string name="info_3gp"><b>3gp</b> : format multimédia développé pour les communications téléphoniques. Utilisez ceci si vous avez besoin de sauver de l\'espace.</string>
 	<string name="info_m4a"><b>M4a</b> : encodé avec le codec audio AAC, possède une bonne qualité pour une petite taille. <b>(recommandé)</b></string>
@@ -324,6 +326,8 @@ Le <b>débit binaire</b> est la taille des données par seconde de son. Cela aff
 	<string name="error_permission_denied">Permission refusée</string>
 	<string name="error_process_waveform">Impossible de dessiner la forme d\'onde</string>
 	<string name="error_lost_records">Certains de vos enregistrements ont été supprimés ou déplacés</string>
+	<string name="local_storage_info_title">Les enregistrements sont stockés sur l\'appareil</string>
+	<string name="local_storage_info_message">Les enregistrements ne sont pas sauvegardés dans le cloud. La suppression de l\'application ou de ses données les effacera définitivement.</string>
 	<string name="error_no_available_space">Pas d\'espace disponible !</string>
 	<string name="error_failed_access_to_storage">Échec de l\'accès au stockage de fichiers</string>
 	<string name="error_on_recording">Erreur pendant l\'enregistrement !</string>
@@ -347,6 +351,8 @@ Le <b>débit binaire</b> est la taille des données par seconde de son. Cela aff
 	<string name="button_pause">Pause</string>
 	<string name="button_resume">Reprendre</string>
 	<string name="button_finish">Terminer</string>
+	<string name="playback_speed_value">%1$sx</string>
+	<string name="playback_speed_value_description">Vitesse de lecture %1$s</string>
 	<string name="legacy_app">Application héritée</string>
 	<string name="legacy_app_subtitle">Passer à l\'ancienne interface de l\'application</string>
 	<string name="switch_to_legacy">Passer à l\'application héritée</string>
@@ -399,11 +405,13 @@ Le <b>débit binaire</b> est la taille des données par seconde de son. Cela aff
 	<string name="app_widget_description">Widget début d\'enregistrement</string>
 
     <string name="bluetooth_microphone_available">Microphone Bluetooth disponible</string>
+    <string name="bluetooth_always_use_when_available">Toujours utiliser le micro Bluetooth lorsqu\'il est disponible</string>
     <string name="audio_source">Source audio</string>
     <string name="audio_source_default">Par défaut</string>
     <string name="audio_source_mic">Microphone</string>
     <string name="audio_source_voice_communication">Communication vocale</string>
     <string name="audio_source_unprocessed">Non traité</string>
+    <string name="audio_source_system">Audio du système</string>
 
     <!-- Database migration -->
     <string name="database_update_in_progress">Mise à jour de la base de données en cours</string>
@@ -426,4 +434,38 @@ Le <b>débit binaire</b> est la taille des données par seconde de son. Cela aff
     <string name="duration_hours_and_minutes">%1$dh %2$dmin</string>
     <string name="duration_minutes">%1$dmin</string>
     <string name="dropdown_menu">Menu</string>
+
+    <!-- Name format constructor -->
+    <string name="name_format_edit">Modifier le format du nom</string>
+    <string name="name_format_preview">Aperçu</string>
+    <string name="name_format_preview_empty">Ajoutez des éléments pour composer un nom</string>
+    <string name="name_format_your_format">Votre format</string>
+    <string name="name_format_empty_hint">Appuyez sur les éléments ci-dessous pour les ajouter à votre format.</string>
+    <string name="name_format_remove_element">Supprimer l\'élément</string>
+    <string name="name_format_date_and_time">Date et heure</string>
+    <string name="name_format_other">Compteur et texte</string>
+    <string name="name_format_dividers">Séparateurs</string>
+    <string name="name_format_presets">Modèles</string>
+    <string name="name_format_add_text">Ajouter du texte</string>
+    <!-- Name format element labels -->
+    <string name="name_format_timestamp">Horodatage</string>
+    <string name="name_format_year">Année</string>
+    <string name="name_format_month">Mois</string>
+    <string name="name_format_month_name">Nom du mois</string>
+    <string name="name_format_day">Jour</string>
+    <string name="name_format_day_of_week">Jour de la semaine</string>
+    <string name="name_format_hour_24">Heure (24 h)</string>
+    <string name="name_format_hour_12">Heure (12 h)</string>
+    <string name="name_format_am_pm">AM/PM</string>
+    <string name="name_format_minute">Minute</string>
+    <string name="name_format_second">Seconde</string>
+    <string name="name_format_counter">Compteur</string>
+    <string name="name_format_text">Texte</string>
+    <!-- Name format preset labels -->
+    <string name="name_format_preset_timestamp">Horodatage</string>
+    <string name="name_format_preset_date">Date</string>
+    <string name="name_format_preset_date_us">Date US</string>
+    <string name="name_format_preset_date_iso8601">Date ISO 8601</string>
+    <string name="name_format_preset_date_long">Date longue</string>
+    <string name="name_format_preset_custom">Personnalisé</string>
 </resources>

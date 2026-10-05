@@ -43,6 +43,7 @@ import com.dimowner.audiorecorder.v2.data.model.BitRate
 import com.dimowner.audiorecorder.v2.data.model.ChannelCount
 import com.dimowner.audiorecorder.v2.data.model.RecordingFormat
 import com.dimowner.audiorecorder.v2.data.model.SampleRate
+import com.dimowner.audiorecorder.v2.data.model.isSystemAudioCaptureSupported
 import com.dimowner.audiorecorder.v2.di.qualifiers.IoDispatcher
 import com.dimowner.audiorecorder.v2.di.qualifiers.MainDispatcher
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -99,8 +100,8 @@ internal class SettingsViewModel @Inject constructor(
             isFloatingRecorderOverlayEnabled = prefs.isFloatingRecorderOverlayEnabled,
             isShowRenameDialog = prefs.askToRenameAfterRecordingStopped,
             isRecordingSettingEditable = true,
-            selectedNameFormat = prefs.settingNamingFormat.toNameFormatItem(),
-            nameFormats = makeNameFormats(),
+            selectedNameFormat = prefs.settingNamingFormat.toNameFormatItem(prefs.customNameFormat),
+            nameFormats = makeNameFormats(prefs.customNameFormat),
             recordingSettings = RecordingFormat.entries.toList().mapIndexed { index, format ->
                 RecordingSetting(
                     recordingFormat = ChipItem(
@@ -150,6 +151,8 @@ internal class SettingsViewModel @Inject constructor(
             maxRecordingDurationMinutes = prefs.maxRecordingDurationMills / 60000,
             recordAuthorName = prefs.recordAuthorName,
             isLegacyAppUser = prefs.isLegacyAppUser,
+            selectedAudioSource = prefs.settingAudioSource,
+            audioSourceOptions = supportedAudioSources(),
         )
     }
 
@@ -174,7 +177,8 @@ internal class SettingsViewModel @Inject constructor(
                     availableSpaceMills = availableTimeMills,
                     availableSpaceBytes = rawAvailableSpaceBytes,
                     // Load the selected audio source from preferences
-                    selectedAudioSource = prefs.settingAudioSource
+                    selectedAudioSource = prefs.settingAudioSource,
+                    audioSourceOptions = supportedAudioSources(),
                 )
             }
             recordsDataSource.removeOutdatedTrashRecords()
@@ -182,9 +186,30 @@ internal class SettingsViewModel @Inject constructor(
     }
 
     fun setAudioSource(audioSource: AudioSource) {
+        if (audioSource !in supportedAudioSources()) return
         _state.value = _state.value.copy(selectedAudioSource = audioSource)
         prefs.settingAudioSource = audioSource
+        validateFormatForAudioSource(audioSource)
     }
+
+    /**
+     * System audio is captured with `AudioRecord`, and 3GP is the one format recorded through
+     * `MediaRecorder` only, so the pair cannot be honoured. Switching the source moves the format
+     * to the default rather than refusing the switch, because the source is what the user just
+     * asked for.
+     */
+    private fun validateFormatForAudioSource(audioSource: AudioSource) {
+        if (audioSource.isSystemAudio && prefs.settingRecordingFormat == RecordingFormat.ThreeGp) {
+            selectRecordingFormat(DefaultValues.DefaultRecordingFormat)
+        }
+    }
+
+    /**
+     * The audio sources offered on this device. System audio needs Android 10 and the feature
+     * flag; the microphone sources are always available.
+     */
+    private fun supportedAudioSources(): List<AudioSource> =
+        AudioSource.entries.filter { !it.isSystemAudio || isSystemAudioCaptureSupported() }
 
     fun executeFirstRun() {
         if (prefs.isFirstRun) {
@@ -238,6 +263,15 @@ internal class SettingsViewModel @Inject constructor(
         _state.value = _state.value.copy(selectedNameFormat = value)
     }
 
+    /** Re-reads the name format from preferences, where the name format constructor stores it. */
+    private fun refreshNameFormat() {
+        val customTokens = prefs.customNameFormat
+        _state.value = _state.value.copy(
+            selectedNameFormat = prefs.settingNamingFormat.toNameFormatItem(customTokens),
+            nameFormats = makeNameFormats(customTokens),
+        )
+    }
+
     fun resetRecordingSettings() {
         prefs.settingRecordingFormat = DefaultValues.DefaultRecordingFormat
         prefs.settingSampleRate = DefaultValues.DefaultSampleRate
@@ -272,6 +306,14 @@ internal class SettingsViewModel @Inject constructor(
 
     fun selectRecordingFormat(value: RecordingFormat) {
         prefs.settingRecordingFormat = value
+        // The mirror of validateFormatForAudioSource(): 3GP has no AudioRecord-backed recorder,
+        // so picking it gives up system audio capture.
+        if (value == RecordingFormat.ThreeGp && prefs.settingAudioSource.isSystemAudio) {
+            prefs.settingAudioSource = DefaultValues.DefaultAudioSource
+            _state.value = _state.value.copy(
+                selectedAudioSource = DefaultValues.DefaultAudioSource
+            )
+        }
         _state.value = _state.value.copy(
             recordingSettings = _state.value.recordingSettings.map { item ->
                 item.copy(
@@ -293,58 +335,39 @@ internal class SettingsViewModel @Inject constructor(
                     ),
                 )
             }
-        ).validate3GpSelectedAndAdjust(value)
+        ).adjustSelectionToFormat(value)
         .recordingSettingsUpdated()
     }
 
-    private fun SettingsState.validate3GpSelectedAndAdjust(format: RecordingFormat): SettingsState {
-        return if (format == RecordingFormat.ThreeGp) {
-            val formatSetting = this.recordingSettings.firstOrNull {
-                it.recordingFormat.value == format
-            }
-            val hasSelectedSampleRate = formatSetting?.sampleRates?.any { it.isSelected } ?: false
-            val hasSelectedChannelCount = formatSetting?.channelCounts?.any { it.isSelected } ?: false
-            if (!hasSelectedSampleRate || !hasSelectedChannelCount) {
-                this.copy(
-                    recordingSettings = recordingSettings.map { recordingSetting ->
-                        if (recordingSetting.recordingFormat.value == format) {
-                            recordingSetting.copy(
-                                sampleRates = if (hasSelectedSampleRate) {
-                                    recordingSetting.sampleRates
-                                } else {
-                                    prefs.settingSampleRate = DefaultValues.Default3GpSampleRate
-                                    recordingSetting.sampleRates.map {
-                                        if (it.value == DefaultValues.Default3GpSampleRate) {
-                                            it.copy(isSelected = true)
-                                        } else {
-                                            it
-                                        }
-                                    }
-                                },
-                                channelCounts = if (hasSelectedChannelCount) {
-                                    recordingSetting.channelCounts
-                                } else {
-                                    prefs.settingChannelCount = DefaultValues.Default3GpChannelCount
-                                    recordingSetting.channelCounts.map {
-                                        if (it.value == DefaultValues.Default3GpChannelCount) {
-                                            it.copy(isSelected = true)
-                                        } else {
-                                            it
-                                        }
-                                    }
-                                }
-                            )
-                        } else {
-                            recordingSetting
-                        }
-                    }
-                )
-            } else {
-                this
-            }
-        } else {
-            return this
+    /**
+     * Ensures the persisted sample rate, bitrate and channel count are all supported by the newly
+     * selected [format]. Any unsupported selection is replaced with the format's default, the new
+     * value is persisted, and the chips for that format are rebuilt so a valid chip stays selected.
+     */
+    private fun SettingsState.adjustSelectionToFormat(format: RecordingFormat): SettingsState {
+        val config = format.config
+        if (!config.isSampleRateSupported(prefs.settingSampleRate)) {
+            prefs.settingSampleRate = format.defaultSampleRate()
         }
+        if (!config.isChannelCountSupported(prefs.settingChannelCount)) {
+            prefs.settingChannelCount = format.defaultChannelCount()
+        }
+        if (config.hasBitrate && !config.isBitRateSupported(prefs.settingBitrate)) {
+            prefs.settingBitrate = DefaultValues.DefaultBitRate
+        }
+        return this.copy(
+            recordingSettings = recordingSettings.map { recordingSetting ->
+                if (recordingSetting.recordingFormat.value == format) {
+                    recordingSetting.copy(
+                        sampleRates = getSampleRates(format, prefs.settingSampleRate, sampleRateStrings),
+                        bitRates = getBitRates(format, prefs.settingBitrate, bitRateStrings),
+                        channelCounts = getChannelCounts(format, prefs.settingChannelCount, channelCountsStrings),
+                    )
+                } else {
+                    recordingSetting
+                }
+            }
+        )
     }
 
     fun selectSampleRate(value: SampleRate) {
@@ -422,6 +445,7 @@ internal class SettingsViewModel @Inject constructor(
             }
             is SettingsScreenAction.SetShowRenamingDialog -> setShowRenamingDialog(action.value)
             is SettingsScreenAction.SetNameFormat -> setNameFormat(action.value)
+            SettingsScreenAction.RefreshNameFormat -> refreshNameFormat()
             SettingsScreenAction.ResetRecordingSettings -> resetRecordingSettings()
             is SettingsScreenAction.SelectRecordingFormat -> selectRecordingFormat(action.value)
             is SettingsScreenAction.SelectSampleRate -> selectSampleRate(action.value)
@@ -490,6 +514,7 @@ internal sealed class SettingsScreenAction {
     data class SetFloatingRecorderOverlayEnabled(val value: Boolean) : SettingsScreenAction()
     data class SetShowRenamingDialog(val value: Boolean) : SettingsScreenAction()
     data class SetNameFormat(val value: NameFormatItem) : SettingsScreenAction()
+    data object RefreshNameFormat : SettingsScreenAction()
     data object ResetRecordingSettings : SettingsScreenAction()
     data class SelectRecordingFormat(val value: RecordingFormat) : SettingsScreenAction()
     data class SelectSampleRate(val value: SampleRate) : SettingsScreenAction()

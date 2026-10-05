@@ -47,12 +47,14 @@
 	<string name="msg_recording_saved_with_name">録音を次の名前で保存しました：%s</string>
     <!-- Error message when saving a recording fails -->
 	<string name="msg_save_recording_failed">録音の保存に失敗しました。</string>
+	<string name="msg_not_enough_storage_space">ストレージの空き容量が不足しています。空き容量を確保してから再度お試しください。</string>
 	<!-- Error message for file operation failure -->
 	<string name="msg_file_operation_failed">ファイル操作に失敗しました。もう一度お試しください</string>
 	<!-- Error message for empty name during rename/save -->
 	<string name="msg_name_cannot_be_empty">名前を入力してください</string>
     <!-- Permission Messages -->
     <string name="msg_permission_microphone_denied">音声を録音するにはマイクの権限が必要です。この機能を使用するには権限を許可してください。</string>
+    <string name="msg_permission_system_audio_denied">システム音声を取得する権限が許可されていません。他のアプリが再生している音を録音するには権限を許可してください。</string>
 	<!-- Action shown on the deletion message (used in a Snackbar/Toast) -->
 	<string name="action_undo">元に戻す</string>
 	<!-- Generic error message for a common failure -->
@@ -116,7 +118,6 @@
 	<string name="recording_progress">録音中&#8230;</string>
 	<string name="recording_paused">一時停止中</string>
 	<string name="playback">再生中：%s</string>
-	<string name="zero_time">00:00</string>
 	<string name="empty">空</string>
 	<string name="items_selected"> %d件選択中</string>
 	<string name="no_records">録音がありません</string>
@@ -140,6 +141,7 @@
 	<string name="info">情報</string>
 	<string name="rename">名前を変更する</string>
 	<string name="dont_ask_again">次回から表示しない</string>
+	<string name="dont_show_next_time">次回は表示しない</string>
 	<string name="open_with">アプリで開く&#8230;</string>
 	<string name="save_as">名前を付けて保存&#8230;</string>
 	<string name="downloading">ダウンロード中：%s</string>
@@ -185,9 +187,14 @@
 	<string name="by_duration">時間順（長い順）</string>
     <string name="by_duration_desc">時間順（短い順）</string>
     <string name="filter">フィルター</string>
-	<string name="filter_clear">クリア</string>
+	<string name="clear">クリア</string>
 	<string name="filter_dismiss">フィルターを閉じる</string>
 	<string name="filter_no_options">フィルタリングする録音がありません</string>
+	<string name="search">検索</string>
+	<string name="search_records_hint">録音を検索</string>
+	<string name="search_close">検索を閉じる</string>
+	<string name="search_clear">検索をクリア</string>
+	<string name="no_search_results">「%1$s」に一致する録音がありません</string>
 	<string name="need_write_permission">アプリは公開ストレージへのアクセス権限が必要です。許可されない場合、録音はアプリのプライベートディレクトリに保存されます</string>
 	<string name="rec_name">名前：</string>
 	<string name="rec_format">フォーマット：</string>
@@ -248,11 +255,9 @@
 		\n<b>3gp</b>はモバイル通信サービスのために開発されたマルチメディアコンテナフォーマットです。容量を節約したい場合に使用してください。
 		</string>
 
-	<string name="info_format_html"><![CDATA[
-<b>M4a</b>フォーマットはAACオーディオコーデックでエンコードされており、高音質かつファイルサイズが小さいです。<b>（推奨）</b>
-<br/><br/><b>Wav</b>は非圧縮のオーディオデータフォーマットです。他のフォーマットと比べてはるかに多くの容量を必要とします。特定の用途に必要な場合に使用してください。
-<br/><b>3gp</b>はモバイル通信サービスのために開発されたマルチメディアコンテナフォーマットです。容量を節約したい場合に使用してください。
-]]></string>
+	<string name="info_format_m4a_html"><![CDATA[<b>M4a</b>フォーマットはAACオーディオコーデックでエンコードされており、高音質かつファイルサイズが小さいです。<b>（推奨）</b>]]></string>
+	<string name="info_format_wav_html"><![CDATA[<b>Wav</b>は非圧縮のオーディオデータフォーマットです。他のフォーマットと比べてはるかに多くの容量を必要とします。特定の用途に必要な場合に使用してください。]]></string>
+	<string name="info_format_3gp_html"><![CDATA[<b>3gp</b>はモバイル通信サービスのために開発されたマルチメディアコンテナフォーマットです。容量を節約したい場合に使用してください。]]></string>
 
 	<string name="info_frequency"><b>サンプルレート</b>とは、1秒間に処理されるオーディオのサンプル数です。
 		\n<b>48kHz</b>はDVDで使用されるサンプルレートです。
@@ -261,13 +266,11 @@
 		\n<b>8kHz</b>は現代の電話システムよりも帯域幅が低く、本格的な録音には適していません。
 		</string>
 
-	<string name="info_frequency_html"><![CDATA[
-<b>サンプルレート</b>とは、1秒間に処理されるオーディオのサンプル数です。
-<br/><br/><b>48kHz</b>はDVDで使用されるサンプルレートです。
-<br/><b>44.1kHz</b>はオーディオCDのサンプリングレートです。<b>（推奨）</b>
-<br/><b>22kHz</b>は64kbpsなどの低ビットレートに一般的なサンプルレートです。
-<br/><b>8kHz</b>は現代の電話システムよりも帯域幅が低く、本格的な録音には適していません。
-]]></string>
+	<string name="info_frequency_header_html"><![CDATA[<b>サンプルレート</b>とは、1秒間に処理されるオーディオのサンプル数です。]]></string>
+	<string name="info_frequency_48khz_html"><![CDATA[<b>48kHz</b>はDVDで使用されるサンプルレートです。]]></string>
+	<string name="info_frequency_44_1khz_html"><![CDATA[<b>44.1kHz</b>はオーディオCDのサンプリングレートです。<b>（推奨）</b>]]></string>
+	<string name="info_frequency_22khz_html"><![CDATA[<b>22kHz</b>は64kbpsなどの低ビットレートに一般的なサンプルレートです。]]></string>
+	<string name="info_frequency_8khz_html"><![CDATA[<b>8kHz</b>は現代の電話システムよりも帯域幅が低く、本格的な録音には適していません。]]></string>
 
 	<string name="info_bitrate"><b>ビットレート</b>とは、1秒間のサウンドデータのサイズです。録音の品質とファイルサイズに直接影響します。
 		\n<b>256 kbps</b>：高品質なビットレートです。
@@ -277,14 +280,12 @@
 		\n<b>48 kbps</b>：音声にのみ許容できる品質です。
 		</string>
 
-    <string name="info_bitrate_html"><![CDATA[
-<b>ビットレート</b>とは、1秒間のサウンドデータのサイズです。録音の品質とファイルサイズに直接影響します。
-<br/><br/><b>256 kbps</b>：高品質なビットレートです。
-<br/><b>192 kbps</b>：中程度の品質のビットレートです。
-<br/><b>128 kbps</b>：中間のビットレート品質です。ポッドキャストで一般的なビットレートです。<b>（推奨）</b>
-<br/><b>96 kbps</b>：主に音声や低品質のストリーミングに使用されます。
-<br/><b>48 kbps</b>：音声にのみ許容できる品質です。
-]]></string>
+    <string name="info_bitrate_header_html"><![CDATA[<b>ビットレート</b>とは、1秒間のサウンドデータのサイズです。録音の品質とファイルサイズに直接影響します。]]></string>
+    <string name="info_bitrate_256kbps_html"><![CDATA[<b>256 kbps</b>：高品質なビットレートです。]]></string>
+    <string name="info_bitrate_192kbps_html"><![CDATA[<b>192 kbps</b>：中程度の品質のビットレートです。]]></string>
+    <string name="info_bitrate_128kbps_html"><![CDATA[<b>128 kbps</b>：中間のビットレート品質です。ポッドキャストで一般的なビットレートです。<b>（推奨）</b>]]></string>
+    <string name="info_bitrate_96kbps_html"><![CDATA[<b>96 kbps</b>：主に音声や低品質のストリーミングに使用されます。]]></string>
+    <string name="info_bitrate_48kbps_html"><![CDATA[<b>48 kbps</b>：音声にのみ許容できる品質です。]]></string>
 
 	<string name="info_channels">
 		<b>ステレオ</b>は2つの独立したチャンネルで録音します。各スピーカーが異なる音声信号を出力します。<b>（推奨）</b>
@@ -301,6 +302,7 @@
 <br/><br/><b>マイク：</b>標準的なマイク設定です。一般的な録音に最適です。音声の音量を自動的に調整しながら、周囲の自然な雰囲気を捉えます。
 <br/><br/><b>音声通話：</b>人の声の明瞭さを重視した設定です。ノイズキャンセルとエコーキャンセルが有効になるため、Bluetoothに最適です。
 <br/><br/><b>未処理：</b>システムのフィルターや調整なしに生のオーディオを録音します。バックグラウンドノイズの除去や音量の均一化は行われません。高品質またはプロフェッショナルな用途に最適です。
+<br/><br/><b>システム音声：</b>マイクの代わりに、他のアプリが再生している音を録音します。アプリは録音を拒否できるため、保護されたコンテンツや通話は無音になります。
 ]]></string>
 	<string name="info_3gp"><b>3gp</b>はモバイル通信サービスのために開発されたマルチメディアコンテナフォーマットです。容量を節約したい場合に使用してください。</string>
 	<string name="info_m4a"><b>M4a</b>フォーマットはAACオーディオコーデックでエンコードされており、高音質かつファイルサイズが小さいです。<b>（推奨）</b></string>
@@ -347,6 +349,8 @@
 	<string name="error_permission_denied">権限が拒否されました</string>
 	<string name="error_process_waveform">波形を描画できません</string>
 	<string name="error_lost_records">一部の録音が削除または移動されました</string>
+	<string name="local_storage_info_title">録音はデバイスに保存されます</string>
+	<string name="local_storage_info_message">録音はクラウドにバックアップされません。アプリまたはそのデータを削除すると、完全に消去されます。</string>
 	<string name="broken_record_title">録音が中断されました</string>
 	<string name="broken_record_message">録音\'%s\'が中断されました（デバイスの再起動が原因の可能性があります）。ファイルが破損している可能性があります。復元を試みますか？</string>
 	<string name="btn_restore">復元</string>
@@ -369,6 +373,8 @@
 	<string name="button_pause">一時停止</string>
 	<string name="button_resume">再開</string>
 	<string name="button_finish">完了</string>
+	<string name="playback_speed_value">%1$sx</string>
+	<string name="playback_speed_value_description">再生速度 %1$s</string>
 	<string name="legacy_app">旧バージョン</string>
 	<string name="legacy_app_subtitle">古いアプリのインターフェースに切り替える</string>
 	<string name="switch_to_legacy">旧バージョンに切り替える</string>
@@ -433,11 +439,13 @@
     <string name="app_widget_description">録音開始ウィジェット</string>
 
     <string name="bluetooth_microphone_available">Bluetoothマイクが利用可能です</string>
+    <string name="bluetooth_always_use_when_available">利用可能なときは常にBluetoothマイクを使用</string>
     <string name="audio_source">オーディオソース</string>
     <string name="audio_source_default">デフォルト</string>
     <string name="audio_source_mic">マイク</string>
     <string name="audio_source_voice_communication">音声通話</string>
     <string name="audio_source_unprocessed">未処理</string>
+    <string name="audio_source_system">システム音声</string>
 
     <!-- Database migration -->
     <string name="database_update_in_progress">データベースを更新中です</string>
@@ -456,4 +464,38 @@
     <!-- Navigate back button description -->
     <string name="navigate_back">前の画面に戻る</string>
     <string name="dropdown_menu">メニュー</string>
+
+    <!-- Name format constructor -->
+    <string name="name_format_edit">名前の形式を編集</string>
+    <string name="name_format_preview">プレビュー</string>
+    <string name="name_format_preview_empty">要素を追加して名前を作成します</string>
+    <string name="name_format_your_format">現在の形式</string>
+    <string name="name_format_empty_hint">下の要素をタップして形式に追加します。</string>
+    <string name="name_format_remove_element">要素を削除</string>
+    <string name="name_format_date_and_time">日付と時刻</string>
+    <string name="name_format_other">カウンターとテキスト</string>
+    <string name="name_format_dividers">区切り文字</string>
+    <string name="name_format_presets">プリセット</string>
+    <string name="name_format_add_text">テキストを追加</string>
+    <!-- Name format element labels -->
+    <string name="name_format_timestamp">タイムスタンプ</string>
+    <string name="name_format_year">年</string>
+    <string name="name_format_month">月</string>
+    <string name="name_format_month_name">月名</string>
+    <string name="name_format_day">日</string>
+    <string name="name_format_day_of_week">曜日</string>
+    <string name="name_format_hour_24">時 (24時間)</string>
+    <string name="name_format_hour_12">時 (12時間)</string>
+    <string name="name_format_am_pm">AM/PM</string>
+    <string name="name_format_minute">分</string>
+    <string name="name_format_second">秒</string>
+    <string name="name_format_counter">カウンター</string>
+    <string name="name_format_text">テキスト</string>
+    <!-- Name format preset labels -->
+    <string name="name_format_preset_timestamp">タイムスタンプ</string>
+    <string name="name_format_preset_date">日付</string>
+    <string name="name_format_preset_date_us">日付 (米国)</string>
+    <string name="name_format_preset_date_iso8601">日付 ISO 8601</string>
+    <string name="name_format_preset_date_long">日付 (長)</string>
+    <string name="name_format_preset_custom">カスタム</string>
 </resources>

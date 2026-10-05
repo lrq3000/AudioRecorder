@@ -21,12 +21,14 @@ import com.dimowner.audiorecorder.AppConstantsV2.RECORD_DESCRIPTION_MAX_LENGTH
 import com.dimowner.audiorecorder.audio.AudioDecoder
 import com.dimowner.audiorecorder.v2.app.records.models.RecordsFilter
 import com.dimowner.audiorecorder.v2.app.records.models.RecordsFilterOptions
+import com.dimowner.audiorecorder.v2.audio.AacFrameIndex
 import com.dimowner.audiorecorder.v2.audio.BrokenRecordRestorer
 import com.dimowner.audiorecorder.v2.audio.writeCommentTag
 import com.dimowner.audiorecorder.v2.data.extensions.toRecordsSortColumnName
 import com.dimowner.audiorecorder.v2.data.extensions.toSqlSortOrder
 import com.dimowner.audiorecorder.v2.data.model.Record
 import com.dimowner.audiorecorder.v2.data.model.SortOrder
+import com.dimowner.audiorecorder.v2.data.model.convertToRecordingFormat
 import com.dimowner.audiorecorder.v2.data.room.RecordDao
 import com.dimowner.audiorecorder.v2.data.room.RecordEntity
 import timber.log.Timber
@@ -89,16 +91,17 @@ class RecordsDataSourceImpl @Inject internal constructor(
         page: Int,
         pageSize: Int,
         sortOrder: SortOrder,
-        isBookmarked: Boolean,
-        filter: RecordsFilter
+        filter: RecordsFilter,
+        searchQuery: String,
     ): List<Record> {
         val args = mutableListOf<Any>()
         val sb = StringBuilder()
         sb.append("SELECT * FROM records")
         sb.append(" WHERE isMovedToRecycle = 0")
-        if (isBookmarked) {
+        if (filter.bookmarkedOnly) {
             sb.append(" AND isBookmarked = 1")
         }
+        appendSearchClause(sb, args, searchQuery)
         appendInClause(sb, args, "format", filter.formats)
         appendInClause(sb, args, "sampleRate", filter.sampleRates)
         appendInClause(sb, args, "channelCount", filter.channelCounts)
@@ -108,6 +111,29 @@ class RecordsDataSourceImpl @Inject internal constructor(
         sb.append(" OFFSET " + ((page - 1) * pageSize))
         return recordDao.getRecordsRewQuery(SimpleSQLiteQuery(sb.toString(), args.toTypedArray()))
             .map { it.toRecord() }
+    }
+
+    /**
+     * Appends an `AND (name LIKE ? OR description LIKE ?)` clause matching [query] anywhere in
+     * either column. Blank queries are ignored. SQLite's LIKE is case-insensitive for ASCII,
+     * which is what the records list needs. The wildcards `%` and `_` (and the escape
+     * character itself) are escaped so a user typing them searches for the literal character
+     * instead of matching everything.
+     */
+    private fun appendSearchClause(
+        sb: StringBuilder,
+        args: MutableList<Any>,
+        query: String,
+    ) {
+        if (query.isBlank()) return
+        val escaped = query.trim()
+            .replace("\\", "\\\\")
+            .replace("%", "\\%")
+            .replace("_", "\\_")
+        val pattern = "%$escaped%"
+        sb.append(" AND (name LIKE ? ESCAPE '\\' OR description LIKE ? ESCAPE '\\')")
+        args.add(pattern)
+        args.add(pattern)
     }
 
     /**
@@ -233,6 +259,8 @@ class RecordsDataSourceImpl @Inject internal constructor(
     private fun deleteRecordAndFileForever(record: RecordEntity): Boolean {
         fun deleteFile(): Boolean {
             return try {
+                // Drops the frame index too, if the recording was force-killed and never restored.
+                AacFrameIndex.delete(File(record.path))
                 fileDataSource.deleteRecordFile(record.path)
             } catch (e: Exception) {
                 Timber.e(e)
@@ -349,7 +377,6 @@ class RecordsDataSourceImpl @Inject internal constructor(
                 filePath = record.path,
                 sampleRate = record.sampleRate,
                 channelCount = record.channelCount,
-                bitrate = record.bitrate,
             )
 
             when (restoreResult) {
@@ -363,7 +390,11 @@ class RecordsDataSourceImpl @Inject internal constructor(
                         size = info.size,
                         sampleRate = if (info.sampleRate > 0) info.sampleRate else record.sampleRate,
                         channelCount = if (info.channelCount > 0) info.channelCount else record.channelCount,
-                        bitrate = if (info.bitrate > 0) info.bitrate else record.bitrate,
+                        bitrate = when {
+                            info.format.convertToRecordingFormat()?.hasBitrate != true -> 0
+                            info.bitrate > 0 -> info.bitrate
+                            else -> record.bitrate
+                        },
                     )
                     val success = recordDao.updateRecord(updatedRecord.toRecordEntity()) == 1
                     if (success) {
