@@ -977,6 +977,8 @@ class AudioRecordingService : Service() {
             emitEvent(AudioRecordingServiceEvent.RecordingStopped(
                 recordId = recordId,
                 recordName = recovered.name,
+                startedFromFloatingOverlay = currentRecordingStartedFromFloatingOverlay,
+                stoppedFromFloatingOverlay = currentRecordingStoppedFromFloatingOverlay,
             ))
             decodeRecord(
                 recordId = recovered.id,
