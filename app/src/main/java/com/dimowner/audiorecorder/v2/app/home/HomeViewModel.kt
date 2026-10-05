@@ -431,6 +431,7 @@ class HomeViewModel @Inject constructor(
                             event.recordId,
                             event.recordName,
                             event.stoppedFromFloatingOverlay,
+                            event.suppressRenameDialog,
                         )
                     }
                     is AudioRecordingServiceEvent.NewRecordingPartStarted -> {
@@ -505,6 +506,7 @@ class HomeViewModel @Inject constructor(
         recordedRecordId: Long,
         recordName: String?,
         stoppedFromFloatingOverlay: Boolean,
+        suppressRenameDialog: Boolean,
     ) {
         withContext(ioDispatcher) {
             if (recordedRecordId >= 0) {
@@ -514,6 +516,7 @@ class HomeViewModel @Inject constructor(
                         askToRenameAfterRecordingStopped = prefs.askToRenameAfterRecordingStopped,
                         recordId = recordedRecordId,
                         stoppedFromFloatingOverlay = stoppedFromFloatingOverlay,
+                        suppressRenameDialog = suppressRenameDialog,
                     ).showInAppRenameDialog
                 ) {
                     updateState()

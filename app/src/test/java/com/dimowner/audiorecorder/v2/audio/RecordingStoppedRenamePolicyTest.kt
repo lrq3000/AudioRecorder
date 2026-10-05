@@ -7,6 +7,20 @@ import org.junit.Test
 class RecordingStoppedRenamePolicyTest {
 
     @Test
+    fun `dismissal suppresses both rename surfaces regardless of stop source`() {
+        for (fromOverlay in listOf(false, true)) {
+            val policy = recordingStoppedRenamePolicy(
+                askToRenameAfterRecordingStopped = true,
+                recordId = 7L,
+                stoppedFromFloatingOverlay = fromOverlay,
+                suppressRenameDialog = true,
+            )
+            assertFalse(policy.showInAppRenameDialog)
+            assertFalse(policy.showFloatingOverlayRenameDialog)
+        }
+    }
+
+    @Test
     fun `in-app stop shows only in-app rename dialog`() {
         val policy = recordingStoppedRenamePolicy(
             askToRenameAfterRecordingStopped = true,

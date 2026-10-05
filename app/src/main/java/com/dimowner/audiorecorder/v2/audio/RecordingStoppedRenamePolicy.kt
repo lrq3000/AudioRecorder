@@ -9,8 +9,9 @@ internal fun recordingStoppedRenamePolicy(
     askToRenameAfterRecordingStopped: Boolean,
     recordId: Long,
     stoppedFromFloatingOverlay: Boolean,
+    suppressRenameDialog: Boolean = false,
 ): RecordingStoppedRenamePolicy {
-    val canRename = askToRenameAfterRecordingStopped && recordId >= 0
+    val canRename = askToRenameAfterRecordingStopped && recordId >= 0 && !suppressRenameDialog
     return RecordingStoppedRenamePolicy(
         showInAppRenameDialog = canRename && !stoppedFromFloatingOverlay,
         showFloatingOverlayRenameDialog = canRename && stoppedFromFloatingOverlay,
