@@ -170,13 +170,13 @@ internal fun SettingsScreen(
 
             Lifecycle.Event.ON_RESUME -> {
                 Timber.d("SettingsScreen: On Resume")
-                //Pick up a format that was just built in the name format constructor.
-                onAction(SettingsScreenAction.RefreshNameFormat)
                 if (uiState.isFloatingRecorderOverlayEnabled
                     && !FloatingRecorderOverlayPermission.canDrawOverlays(context)
                 ) {
                     setFloatingOverlayEnabled(false)
                 }
+                //Pick up a format that was just built in the name format constructor.
+                onAction(SettingsScreenAction.RefreshNameFormat)
             }
 
             Lifecycle.Event.ON_PAUSE -> {

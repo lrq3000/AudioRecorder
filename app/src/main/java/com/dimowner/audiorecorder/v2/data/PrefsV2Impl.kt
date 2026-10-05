@@ -413,10 +413,6 @@ class PrefsV2Impl @Inject internal constructor(@ApplicationContext context: Cont
         private const val PREF_KEY_MAX_RECORDING_DURATION_MILLS = "pref_key_max_recording_duration_mills"
         private const val PREF_KEY_SETTING_AUDIO_SOURCE = "pref_key_setting_audio_source"
         private const val PREF_KEY_RECORD_AUTHOR_NAME = "pref_key_record_author_name"
-        private const val PREF_KEY_SAVE_DESCRIPTION_TO_FILE = "pref_key_save_description_to_file"
-        private const val PREF_KEY_IS_LOCAL_STORAGE_INFO_SHOWN = "pref_key_is_local_storage_info_shown"
-        private const val PREF_KEY_CUSTOM_NAME_FORMAT = "pref_key_custom_name_format"
-        private const val PREF_KEY_ALWAYS_USE_BLUETOOTH_MIC = "pref_key_always_use_bluetooth_mic"
         private const val PREF_KEY_FLOATING_RECORDER_OVERLAY_ENABLED =
             "pref_key_floating_recorder_overlay_enabled"
         private const val PREF_KEY_FLOATING_RECORDER_OVERLAY_X = "pref_key_floating_recorder_overlay_x"
@@ -428,5 +424,9 @@ class PrefsV2Impl @Inject internal constructor(@ApplicationContext context: Cont
             "pref_key_floating_recorder_rename_overlay_y"
         private const val PREF_KEY_FLOATING_RECORDER_RENAME_SPEECH_MODE =
             "pref_key_floating_recorder_rename_speech_mode"
+        private const val PREF_KEY_SAVE_DESCRIPTION_TO_FILE = "pref_key_save_description_to_file"
+        private const val PREF_KEY_IS_LOCAL_STORAGE_INFO_SHOWN = "pref_key_is_local_storage_info_shown"
+        private const val PREF_KEY_CUSTOM_NAME_FORMAT = "pref_key_custom_name_format"
+        private const val PREF_KEY_ALWAYS_USE_BLUETOOTH_MIC = "pref_key_always_use_bluetooth_mic"
     }
 }

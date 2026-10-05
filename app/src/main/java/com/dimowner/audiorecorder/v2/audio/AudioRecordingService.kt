@@ -117,11 +117,11 @@ class AudioRecordingService : Service() {
         ) {
             val intent = Intent(context, AudioRecordingService::class.java).apply {
                 action = ACTION_START_RECORDING
+                putExtra(EXTRA_STARTED_FROM_FLOATING_OVERLAY, startedFromFloatingOverlay)
                 if (projectionData != null) {
                     putExtra(EXTRA_PROJECTION_RESULT_CODE, projectionResultCode)
                     putExtra(EXTRA_PROJECTION_DATA, projectionData)
                 }
-                putExtra(EXTRA_STARTED_FROM_FLOATING_OVERLAY, startedFromFloatingOverlay)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
@@ -264,6 +264,11 @@ class AudioRecordingService : Service() {
         subscribeRecorderEvents()
         when (intent?.action) {
             ACTION_START_RECORDING -> {
+                currentRecordingStartedFromFloatingOverlay = intent.getBooleanExtra(
+                    EXTRA_STARTED_FROM_FLOATING_OVERLAY,
+                    false,
+                )
+                currentRecordingStoppedFromFloatingOverlay = false
                 // Recording and playback must never overlap, and the stop belongs here rather
                 // than at the call sites: this is the one point every entry into recording goes
                 // through, including the home screen widget, which otherwise records over the
@@ -273,11 +278,6 @@ class AudioRecordingService : Service() {
                 // it can only be created once the service is foreground with the mediaProjection
                 // type (enforced from Android 14), hence this ordering.
                 val useSystemAudio = isSystemAudioSelected() && intent.hasProjectionConsent()
-                currentRecordingStartedFromFloatingOverlay = intent.getBooleanExtra(
-                    EXTRA_STARTED_FROM_FLOATING_OVERLAY,
-                    false,
-                )
-                currentRecordingStoppedFromFloatingOverlay = false
                 // Must call startForeground() synchronously before any async work
                 // to satisfy the foreground service contract and avoid ANR.
                 startForegroundWithNotification(withMediaProjection = useSystemAudio)
@@ -977,6 +977,8 @@ class AudioRecordingService : Service() {
             emitEvent(AudioRecordingServiceEvent.RecordingStopped(
                 recordId = recordId,
                 recordName = recovered.name,
+                startedFromFloatingOverlay = currentRecordingStartedFromFloatingOverlay,
+                stoppedFromFloatingOverlay = currentRecordingStoppedFromFloatingOverlay,
             ))
             decodeRecord(
                 recordId = recovered.id,

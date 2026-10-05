@@ -120,6 +120,19 @@ class HomeActivity: ComponentActivity() {
         }
     }
 
+    private fun reconcileFloatingRecorderOverlayService() {
+        if (!prefs.isFloatingRecorderOverlayEnabled) return
+
+        if (FloatingRecorderOverlayPermission.canDrawOverlays(this)) {
+            FloatingRecorderOverlayService.startService(applicationContext)
+        } else {
+            // Overlay permission can be revoked from Android settings while the app is closed.
+            // Keep the persisted setting aligned with the platform state.
+            prefs.isFloatingRecorderOverlayEnabled = false
+            FloatingRecorderOverlayService.stopService(applicationContext)
+        }
+    }
+
     private fun checkNotificationPermission() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
         if (notificationPermissionRequested) return
@@ -141,18 +154,5 @@ class HomeActivity: ComponentActivity() {
         notificationPermissionRequested = true
         notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
 
-    }
-
-    private fun reconcileFloatingRecorderOverlayService() {
-        if (!prefs.isFloatingRecorderOverlayEnabled) return
-
-        if (FloatingRecorderOverlayPermission.canDrawOverlays(this)) {
-            FloatingRecorderOverlayService.startService(applicationContext)
-        } else {
-            // Overlay permission can be revoked from Android settings while the app is closed.
-            // Keep the persisted setting aligned with the platform state.
-            prefs.isFloatingRecorderOverlayEnabled = false
-            FloatingRecorderOverlayService.stopService(applicationContext)
-        }
     }
 }
