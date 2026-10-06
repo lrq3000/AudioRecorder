@@ -89,7 +89,7 @@ class FloatingRecorderOverlayService : Service() {
 
     private lateinit var windowManager: WindowManager
     private lateinit var dismissTarget: OverlayDismissTarget
-    private val recordingServiceReady = CompletableDeferred<AudioRecordingService>()
+    private var recordingServiceReady = CompletableDeferred<Unit>()
     @Volatile private var isClosing = false
     private var iconView: FrameLayout? = null
     private var iconParams: WindowManager.LayoutParams? = null
@@ -106,7 +106,7 @@ class FloatingRecorderOverlayService : Service() {
             val binder = service as? AudioRecordingService.ServiceBinder
             recordingService = binder?.getService()
             recordingService?.let { boundService ->
-                recordingServiceReady.complete(boundService)
+                recordingServiceReady.complete(Unit)
                 subscribeRecordingService(boundService)
                 if (pendingStop) {
                     pendingStop = false
@@ -117,10 +117,12 @@ class FloatingRecorderOverlayService : Service() {
 
         override fun onServiceDisconnected(name: ComponentName?) {
             recordingService = null
-            isRecordingServiceBound = false
+            // Android keeps the binding registered and reconnects it automatically.
             recordingStateJob?.cancel()
             recordingEventJob?.cancel()
-            recordingServiceReady.completeExceptionally(IllegalStateException("Recording service disconnected"))
+            if (recordingServiceReady.isCompleted) {
+                recordingServiceReady = CompletableDeferred()
+            }
         }
 
         override fun onNullBinding(name: ComponentName?) {
@@ -499,7 +501,7 @@ class FloatingRecorderOverlayService : Service() {
                 audioPlayer.stop()
                 // Keep the binding alive until WAV/header/tag/DB finalization has finished.
                 // Closing the task first can tear down clients before a recording is saved.
-                val saved = recordingServiceReady.await().stopForDismissal()
+                val saved = awaitRecordingService().stopForDismissal()
                 if (!saved) {
                     isClosing = false
                     Toast.makeText(this@FloatingRecorderOverlayService,
@@ -522,6 +524,14 @@ class FloatingRecorderOverlayService : Service() {
                 Toast.makeText(this@FloatingRecorderOverlayService,
                     R.string.msg_file_operation_failed, Toast.LENGTH_LONG).show()
             }
+        }
+    }
+
+    private suspend fun awaitRecordingService(): AudioRecordingService {
+        while (true) {
+            // Recheck after suspension: the connection may have changed before we resumed.
+            recordingService?.let { return it }
+            recordingServiceReady.await()
         }
     }
 
