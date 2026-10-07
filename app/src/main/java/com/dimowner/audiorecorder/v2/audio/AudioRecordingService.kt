@@ -148,6 +148,9 @@ class AudioRecordingService : Service() {
     @Inject
     lateinit var prefs: PrefsV2
 
+    @Inject lateinit var audioManagerHelper: com.dimowner.audiorecorder.util.AudioManagerHelper
+    @Inject lateinit var captureDiagnostics: CaptureDiagnostics
+
     @Inject
     lateinit var analyticsTracker: AnalyticsTracker
 
@@ -219,6 +222,8 @@ class AudioRecordingService : Service() {
     /** Job for the current recorder-events subscription; cancelled before re-subscribing. */
     private var subscriptionJob: Job? = null
     private var recordingStartJob: Job? = null
+    @Volatile private var waitingForBluetooth = false
+    private val recordingStartGuard = RecordingStartGuard()
     private val dismissalGate = RecordingDismissalGate()
 
     /**
@@ -256,6 +261,19 @@ class AudioRecordingService : Service() {
         super.onCreate()
         createNotificationChannel()
         notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        serviceScope.launch {
+            audioManagerHelper.routeState.collect { route ->
+                if (route.phase == BluetoothRoutePhase.FAILED && ::audioRecorder.isInitialized) {
+                    if (audioManagerHelper.ownsBluetoothRecordingRoute) {
+                        recordingStartGuard.requestStop()
+                        emitEvent(AudioRecordingServiceEvent.ShowErrorSnack("Bluetooth audio disconnected; stopping to avoid recording a different microphone."))
+                        // The M4A wrapper must latch Stop even if its codec has already gone
+                        // idle and queued a fallback. Otherwise it could reopen another mic.
+                        audioRecorder.stopRecording()
+                    }
+                }
+            }
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder {
@@ -271,6 +289,7 @@ class AudioRecordingService : Service() {
         subscribeRecorderEvents()
         when (intent?.action) {
             ACTION_START_RECORDING -> {
+                recordingStartGuard.begin()
                 currentRecordingStartedFromFloatingOverlay = intent.getBooleanExtra(
                     EXTRA_STARTED_FROM_FLOATING_OVERLAY,
                     false,
@@ -311,6 +330,7 @@ class AudioRecordingService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        audioManagerHelper.finishRecordingRoute()
         releaseMediaProjection()
         subscriptionJob?.cancel()
         serviceJob.cancel()
@@ -589,7 +609,7 @@ class AudioRecordingService : Service() {
     private fun resolveAudioInput(): AudioInput {
         val source = prefs.settingAudioSource
         if (!source.isSystemAudio) {
-            return AudioInput.Mic(source.value)
+            return AudioInput.Mic(source.value, prefs.inputPreprocessingPolicy, prefs.pcmGainMode)
         }
         if (!isSystemAudioCaptureSupported()) {
             // Settings never offer system audio below Android 10, but a restored backup or a
@@ -669,6 +689,25 @@ class AudioRecordingService : Service() {
             )
             return null
         }
+        captureDiagnostics.session("Preparing recording.\n" + CaptureProcessingSession.describeInput(audioInput) +
+            "\nRequested: $sampleRate Hz, $channelCount channel(s); format=${format.value}")
+        val routeReady = if (audioInput is AudioInput.Mic) {
+            waitingForBluetooth = true
+            try { audioManagerHelper.prepareRecording() } finally { waitingForBluetooth = false }
+        } else true
+        if (!recordingStartGuard.mayStart(routeReady)) {
+            emitEvent(AudioRecordingServiceEvent.ShowErrorSnack("Bluetooth route failed. See Experimental Bluetooth microphone diagnostics."))
+            stopForegroundService()
+            return null
+        }
+        if (audioInput is AudioInput.SystemPlayback) {
+            withContext(kotlinx.coroutines.Dispatchers.Main.immediate) { audioManagerHelper.finishRecordingRoute() }
+            captureDiagnostics.route("System playback capture: Bluetooth microphone routing and processing not applied.")
+        }
+        if (format == RecordingFormat.ThreeGp) {
+            captureDiagnostics.session("Backend: 3GP / MediaRecorder. Effects and software gain NOT APPLIED; audio session unavailable.\n" +
+                CaptureProcessingSession.describeInput(audioInput) + "\nRequested: $sampleRate Hz, $channelCount channel(s)")
+        }
         try {
             val recordFile = fileDataSource.createRecordFile(addExtension(recordName))
             // Use the actual file name (without extension) in case a suffix was added to avoid collision
@@ -697,6 +736,15 @@ class AudioRecordingService : Service() {
             prefs.recordedRecordId = id
             prefs.recordedRecordPartCounter += 1
 
+            // Database insertion suspends. Recheck both Stop intent and the observed route
+            // before opening hardware; otherwise this take could silently use the phone mic.
+            if (!recordingStartGuard.mayStart(audioInput !is AudioInput.Mic || audioManagerHelper.isRouteReadyForRecording)) {
+                prefs.recordedRecordId = -1
+                recordsDataSource.deleteRecordAndFileForever(id)
+                stopForegroundService()
+                return null
+            }
+
             _recordingState.value = _recordingState.value.copy(
                 recordId = id,
                 recordName = actualRecordName,
@@ -721,6 +769,10 @@ class AudioRecordingService : Service() {
                 maxRecordingDurationMills = prefs.maxRecordingDurationMills,
                 audioInput = audioInput,
             )
+            // A disconnect/Stop can also race the synchronous native start call itself.
+            if (!recordingStartGuard.mayStart(audioInput !is AudioInput.Mic || audioManagerHelper.isRouteReadyForRecording)) {
+                audioRecorder.stopRecording()
+            }
             return id
         } catch (e: CantCreateFileException) {
             Timber.e(e, "Failed to start recording with name: $recordName")
@@ -879,7 +931,7 @@ class AudioRecordingService : Service() {
     }
 
     private fun handleStopAction() {
-        audioRecorder.stopRecording()
+        stopRecording()
     }
 
     fun pauseRecording() {
@@ -899,6 +951,12 @@ class AudioRecordingService : Service() {
     }
 
     fun stopRecording(stoppedFromFloatingOverlay: Boolean) {
+        recordingStartGuard.requestStop()
+        if (waitingForBluetooth) {
+            recordingStartJob?.cancel()
+            stopForegroundService()
+            return
+        }
         currentRecordingStoppedFromFloatingOverlay = stoppedFromFloatingOverlay
         if (!audioRecorder.stopRecording()) {
             currentRecordingStoppedFromFloatingOverlay = false
@@ -1042,6 +1100,7 @@ class AudioRecordingService : Service() {
 
     private fun stopForegroundService(saved: Boolean = false) {
         isStartingRecording = false
+        mainHandler.post { audioManagerHelper.finishRecordingRoute() }
         releaseMediaProjection()
         recordingAmplitudes.clear()
         totalRecordingSampleCount = 0

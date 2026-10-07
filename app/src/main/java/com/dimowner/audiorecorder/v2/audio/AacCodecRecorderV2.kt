@@ -132,6 +132,7 @@ internal fun selectAacEncoder(candidates: List<AacEncoderCandidate>, targetBitRa
 @Suppress("TooManyFunctions")
 class AacCodecRecorderV2 @Inject constructor(
     private val coroutineScope: CoroutineScope,
+    private val diagnostics: CaptureDiagnostics = CaptureDiagnostics(),
 ) : RecorderV2 {
 
     /** Outcome of the synchronous part of starting, which decides whether a fallback makes sense. */
@@ -147,6 +148,7 @@ class AacCodecRecorderV2 @Inject constructor(
     }
 
     private var audioRecord: AudioRecord? = null
+    private var processing: CaptureProcessingSession? = null
     private var codec: MediaCodec? = null
     private var muxer: MediaMuxer? = null
     private var frameIndexWriter: AacFrameIndex.Writer? = null
@@ -274,6 +276,7 @@ class AacCodecRecorderV2 @Inject constructor(
             return StartResult.Rejected(RecorderInitException())
         }
         audioRecord = recorder
+        processing = CaptureProcessingSession(recorder, audioInput, sampleRate, channelCount, "M4A direct AAC", diagnostics)
 
         val encoderInfo = selectAacEncoder(
             aacEncoderCandidates(sampleRate, channelCount),
@@ -308,6 +311,7 @@ class AacCodecRecorderV2 @Inject constructor(
 
         try {
             recorder.startRecording()
+            processing?.started(recorder)
         } catch (e: IllegalStateException) {
             Timber.e(e, "startRecording() failed")
             releaseEverything()
@@ -423,6 +427,7 @@ class AacCodecRecorderV2 @Inject constructor(
                     continue
                 }
                 if (read > 0) {
+                    processing?.processInPlace(pcm, read)
                     synchronized(amplitudesBuffer) { amplitudesBuffer.add(calculateAmplitude(pcm, read)) }
                     framesFed = feedEncoder(encoder, pcm, read, framesFed, frameSize, session)
                     durationMills = pcmDurationMills(framesFed, sampleRateConfig)
@@ -753,6 +758,8 @@ class AacCodecRecorderV2 @Inject constructor(
             false
         } finally {
             recorder.release()
+            processing?.close()
+            processing = null
             if (audioRecord === recorder) audioRecord = null
         }
     }

@@ -55,6 +55,11 @@ import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.util.Locale
 import javax.inject.Inject
+import com.dimowner.audiorecorder.v2.audio.CaptureDiagnostics
+import com.dimowner.audiorecorder.v2.data.model.BluetoothCaptureRoute
+import com.dimowner.audiorecorder.v2.data.model.BluetoothAudioMode
+import com.dimowner.audiorecorder.v2.data.model.InputPreprocessingPolicy
+import com.dimowner.audiorecorder.v2.data.model.PcmGainMode
 
 @HiltViewModel
 internal class SettingsViewModel @Inject constructor(
@@ -67,6 +72,7 @@ internal class SettingsViewModel @Inject constructor(
     @param:MainDispatcher private val mainDispatcher: CoroutineDispatcher,
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     @ApplicationContext context: Context,
+    private val captureDiagnostics: CaptureDiagnostics = CaptureDiagnostics(),
 ) : ViewModel() {
 
     private val decimalFormat: DecimalFormat
@@ -90,6 +96,14 @@ internal class SettingsViewModel @Inject constructor(
     private val _state: MutableState<SettingsState> = mutableStateOf(createDefaultState(context))
 
     val state: State<SettingsState> = _state
+
+    init {
+        viewModelScope.launch {
+            captureDiagnostics.state.collect { evidence ->
+                _state.value = _state.value.copy(captureDiagnostics = evidence.route + "\n\nCurrent / last recording:\n" + evidence.session)
+            }
+        }
+    }
 
     private fun createDefaultState(context: Context): SettingsState {
         return SettingsState(
@@ -153,6 +167,10 @@ internal class SettingsViewModel @Inject constructor(
             isLegacyAppUser = prefs.isLegacyAppUser,
             selectedAudioSource = prefs.settingAudioSource,
             audioSourceOptions = supportedAudioSources(),
+            bluetoothCaptureRoute = prefs.bluetoothCaptureRoute,
+            bluetoothAudioMode = prefs.bluetoothAudioMode,
+            inputPreprocessingPolicy = prefs.inputPreprocessingPolicy,
+            pcmGainMode = prefs.pcmGainMode,
         )
     }
 
@@ -273,12 +291,18 @@ internal class SettingsViewModel @Inject constructor(
     }
 
     fun resetRecordingSettings() {
+        prefs.resetRecordingSettings()
         prefs.settingRecordingFormat = DefaultValues.DefaultRecordingFormat
         prefs.settingSampleRate = DefaultValues.DefaultSampleRate
         prefs.settingBitrate = DefaultValues.DefaultBitRate
         prefs.settingChannelCount = DefaultValues.DefaultChannelCount
         prefs.settingAudioSource = DefaultValues.DefaultAudioSource
         _state.value = _state.value.copy(
+            selectedAudioSource = DefaultValues.DefaultAudioSource,
+            bluetoothCaptureRoute = BluetoothCaptureRoute.STANDARD_SCO,
+            bluetoothAudioMode = BluetoothAudioMode.IN_COMMUNICATION,
+            inputPreprocessingPolicy = InputPreprocessingPolicy.SYSTEM_DEFAULT,
+            pcmGainMode = PcmGainMode.OFF,
             recordingSettings = _state.value.recordingSettings.map { formatSetting ->
                 RecordingSetting(
                     recordingFormat = formatSetting.recordingFormat.updateSelected(
@@ -435,7 +459,24 @@ internal class SettingsViewModel @Inject constructor(
     }
 
     fun onAction(action: SettingsScreenAction) {
+        if (action is SettingsScreenAction.SetExperiment && audioRecorderDelegate.provideAudioRecorder().isRecording) return
         when (action) {
+            is SettingsScreenAction.SetExperiment.Route -> {
+                prefs.bluetoothCaptureRoute = action.value
+                _state.value = _state.value.copy(bluetoothCaptureRoute = action.value)
+            }
+            is SettingsScreenAction.SetExperiment.Mode -> {
+                prefs.bluetoothAudioMode = action.value
+                _state.value = _state.value.copy(bluetoothAudioMode = action.value)
+            }
+            is SettingsScreenAction.SetExperiment.Preprocessing -> {
+                prefs.inputPreprocessingPolicy = action.value
+                _state.value = _state.value.copy(inputPreprocessingPolicy = action.value)
+            }
+            is SettingsScreenAction.SetExperiment.Gain -> {
+                prefs.pcmGainMode = action.value
+                _state.value = _state.value.copy(pcmGainMode = action.value)
+            }
             SettingsScreenAction.InitSettingsScreen -> initSettings()
             is SettingsScreenAction.SetDynamicTheme -> setDynamicTheme(action.value)
             is SettingsScreenAction.SetDarkTheme -> setDarkTheme(action.value)
@@ -506,6 +547,12 @@ internal class SettingsViewModel @Inject constructor(
 }
 
 internal sealed class SettingsScreenAction {
+    sealed class SetExperiment : SettingsScreenAction() {
+        data class Route(val value: BluetoothCaptureRoute) : SetExperiment()
+        data class Mode(val value: BluetoothAudioMode) : SetExperiment()
+        data class Preprocessing(val value: InputPreprocessingPolicy) : SetExperiment()
+        data class Gain(val value: PcmGainMode) : SetExperiment()
+    }
     data object InitSettingsScreen : SettingsScreenAction()
     data class SetAppV2(val value: Boolean) : SettingsScreenAction()
     data class SetDynamicTheme(val value: Boolean) : SettingsScreenAction()

@@ -23,13 +23,18 @@ import android.media.AudioManager
 import android.os.Build
 import androidx.annotation.RequiresApi
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.dimowner.audiorecorder.v2.audio.BluetoothCaptureController
+import com.dimowner.audiorecorder.v2.audio.CaptureDiagnostics
+import com.dimowner.audiorecorder.v2.data.PrefsV2
+import com.dimowner.audiorecorder.v2.data.PrefsV2Impl
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Data class to wrap AudioDeviceInfo with display name
@@ -76,16 +81,26 @@ data class BluetoothMicState(
  */
 @Singleton
 class AudioManagerHelper @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context,
+    private val prefs: PrefsV2 = PrefsV2Impl(context),
+    private val diagnostics: CaptureDiagnostics = CaptureDiagnostics(),
 ) {
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
     private val _bluetoothMicState = MutableStateFlow(BluetoothMicState())
     val bluetoothMicState: StateFlow<BluetoothMicState> = _bluetoothMicState.asStateFlow()
 
-    private var isBluetoothScoActive = false
-    private var previousAudioMode = AudioManager.MODE_NORMAL
-    private var isCommunicationDeviceSet = false
+    // The switch expresses intent; readiness is a separate observed state owned through capture.
+    @Volatile private var bluetoothRequested = false
+    @Volatile private var recordingRouteOwned = false
+    private val routeController by lazy {
+        BluetoothCaptureController(context, diagnostics) { updateBluetoothDeviceState() }
+    }
+    internal val routeState get() = routeController.state
+    // Unlike recorder amplitude flags, this covers preparation and native-start transitions.
+    internal val ownsBluetoothRecordingRoute: Boolean get() = recordingRouteOwned && bluetoothRequested
+    internal val isRouteReadyForRecording: Boolean get() = !bluetoothRequested ||
+        routeController.state.value.phase == com.dimowner.audiorecorder.v2.audio.BluetoothRoutePhase.READY
 
     private var selectedBluetoothDevice: BluetoothDeviceInfo? = null
 
@@ -104,9 +119,9 @@ class AudioManagerHelper @Inject constructor(
                 selectedBluetoothDevice = null
             }
             // Disable routing if it was enabled and no Bluetooth input device remains
-            if ((isCommunicationDeviceSet || isBluetoothScoActive) && !hasBluetoothAudioInputDevice()) {
+            if (bluetoothRequested && !hasBluetoothAudioInputDevice()) {
                 Timber.d("Last Bluetooth input device removed, disabling routing")
-                disableBluetoothRouting()
+                routeController.inputDisconnected()
             }
             updateBluetoothDeviceState()
         }
@@ -141,15 +156,36 @@ class AudioManagerHelper @Inject constructor(
      */
     suspend fun enableBluetoothMic(enable: Boolean) {
         Timber.d("enableBluetoothMic: $enable")
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            enableBluetoothMicApi31Plus(enable)
-        } else {
-            enableBluetoothMicLegacy(enable)
+        withContext(Dispatchers.Main.immediate) {
+            bluetoothRequested = enable
+            if (enable) requestRoute() else disableBluetoothRouting()
+            updateBluetoothDeviceState()
         }
+    }
 
-        delay(500)
-        updateBluetoothDeviceState()
+    private fun requestRoute() {
+        val device = selectedBluetoothDevice?.audioDeviceInfo ?: getAvailableCommunicationDevices().firstOrNull()
+        routeController.start(prefs.bluetoothCaptureRoute, prefs.bluetoothAudioMode, device)
+    }
+
+    /** Service preflight: never create an experiment file before Bluetooth audio is ready. */
+    internal suspend fun prepareRecording(): Boolean = withContext(Dispatchers.Main.immediate) {
+        recordingRouteOwned = true
+        if (!bluetoothRequested && prefs.alwaysUseBluetoothMic && hasBluetoothAudioInputDevice()) bluetoothRequested = true
+        if (!bluetoothRequested) {
+            diagnostics.route("Bluetooth microphone switch is OFF; recording the system-selected microphone.\n" +
+                "Selected experiment: ${prefs.bluetoothCaptureRoute}, ${prefs.bluetoothAudioMode} (not applied)")
+            true
+        } else {
+            requestRoute()
+            routeController.awaitReady()
+        }
+    }
+
+    /** Keep the switch intent for the next comparison, but release this session's audio route. */
+    internal fun finishRecordingRoute() {
+        recordingRouteOwned = false
+        disableBluetoothRouting()
     }
 
     /**
@@ -163,107 +199,15 @@ class AudioManagerHelper @Inject constructor(
         Timber.d("selectBluetoothDevice: ${device?.productName}")
         selectedBluetoothDevice = device
         // If routing is already enabled, switch to the newly selected device immediately
-        if (device != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && isCommunicationDeviceSet) {
-            try {
-                val success = audioManager.setCommunicationDevice(device.audioDeviceInfo)
-                Timber.d("setCommunicationDevice on selection result: $success for device: ${device.productName}")
-            } catch (e: Exception) {
-                Timber.e(e, "Error switching communication device on selection")
-            }
-        }
+        if (device != null && bluetoothRequested) requestRoute()
         updateBluetoothDeviceState()
     }
 
     /**
      * Modern API (31+) implementation for Bluetooth microphone routing.
      */
-    @RequiresApi(Build.VERSION_CODES.S)
-    private fun enableBluetoothMicApi31Plus(enable: Boolean) {
-        try {
-            if (enable) {
-                // Use selected device if available, otherwise use first available device
-                val bluetoothDevice = selectedBluetoothDevice?.audioDeviceInfo
-                    ?: getBluetoothAudioInputDevice()
-
-                if (bluetoothDevice != null) {
-                    // Capture the mode to restore only when routing is not already active,
-                    // otherwise a repeated enable would capture MODE_IN_COMMUNICATION
-                    // and disabling could never restore the original mode.
-                    if (!isCommunicationDeviceSet) {
-                        previousAudioMode = audioManager.mode
-                    }
-                    audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
-                    val success = audioManager.setCommunicationDevice(bluetoothDevice)
-                    Timber.d("setCommunicationDevice result: $success for device: ${bluetoothDevice.productName}")
-                    if (success) {
-                        isCommunicationDeviceSet = true
-                    } else {
-                        Timber.w("Failed to set communication device")
-                        if (!isCommunicationDeviceSet) {
-                            audioManager.mode = previousAudioMode
-                        }
-                    }
-                } else {
-                    Timber.w("No Bluetooth audio input device available")
-                }
-            } else {
-                disableBluetoothRouting()
-                Timber.d("Cleared communication device and restored audio mode")
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "Error enabling/disabling Bluetooth mic (API 31+)")
-        }
-    }
-
-    /**
-     * Legacy API implementation for Bluetooth microphone routing using SCO.
-     */
-    private fun enableBluetoothMicLegacy(enable: Boolean) {
-        try {
-            if (enable) {
-                if (!isBluetoothScoActive && hasBluetoothAudioInputDevice()) {
-                    previousAudioMode = audioManager.mode
-                    audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
-                    audioManager.startBluetoothSco()
-                    audioManager.isBluetoothScoOn = true
-                    isBluetoothScoActive = true
-                    Timber.d("Started Bluetooth SCO")
-                }
-            } else {
-                disableBluetoothRouting()
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "Error enabling/disabling Bluetooth mic (legacy)")
-        }
-    }
-
-    /**
-     * Disables Bluetooth audio routing and restores the previous audio mode,
-     * but only if routing was actually enabled by this helper. This avoids
-     * clobbering the global audio mode when Bluetooth was never enabled
-     * (e.g. during a phone call handled by another app).
-     */
     private fun disableBluetoothRouting() {
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (isCommunicationDeviceSet) {
-                    audioManager.clearCommunicationDevice()
-                    audioManager.mode = previousAudioMode
-                    isCommunicationDeviceSet = false
-                    Timber.d("Cleared communication device")
-                }
-            } else {
-                if (isBluetoothScoActive) {
-                    audioManager.stopBluetoothSco()
-                    audioManager.isBluetoothScoOn = false
-                    audioManager.mode = previousAudioMode
-                    isBluetoothScoActive = false
-                    Timber.d("Stopped Bluetooth SCO")
-                }
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "Error disabling Bluetooth routing")
-        }
+        routeController.stop()
     }
 
     /**
@@ -272,6 +216,10 @@ class AudioManagerHelper @Inject constructor(
      */
     fun release() {
         Timber.d("Releasing AudioManagerHelper")
+        if (recordingRouteOwned) {
+            unregister()
+            return
+        }
 
         try {
             // Disable Bluetooth routing if this helper enabled it
@@ -282,6 +230,7 @@ class AudioManagerHelper @Inject constructor(
 
             // Reset state
             selectedBluetoothDevice = null
+            bluetoothRequested = false
             _bluetoothMicState.value = BluetoothMicState()
         } catch (e: Exception) {
             Timber.e(e, "Error releasing AudioManagerHelper")
@@ -309,11 +258,7 @@ class AudioManagerHelper @Inject constructor(
             null
         }
         
-        val isEnabled = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            isBluetoothEnabledApi31Plus()
-        } else {
-            isBluetoothScoActive
-        }
+        val isEnabled = bluetoothRequested
         
         // Validate selected device is still in connected devices
         val validatedSelectedDevice = if (selectedBluetoothDevice != null) {
