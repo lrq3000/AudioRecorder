@@ -24,9 +24,13 @@ import com.dimowner.audiorecorder.AppConstants.PREF_NAME
 import com.dimowner.audiorecorder.v2.DefaultValues
 import com.dimowner.audiorecorder.v2.data.model.AudioSource
 import com.dimowner.audiorecorder.v2.data.model.BitRate
+import com.dimowner.audiorecorder.v2.data.model.BluetoothAudioMode
+import com.dimowner.audiorecorder.v2.data.model.BluetoothCaptureRoute
 import com.dimowner.audiorecorder.v2.data.model.ChannelCount
+import com.dimowner.audiorecorder.v2.data.model.InputPreprocessingPolicy
 import com.dimowner.audiorecorder.v2.data.model.NameFormat
 import com.dimowner.audiorecorder.v2.data.model.NameFormatToken
+import com.dimowner.audiorecorder.v2.data.model.PcmGainMode
 import com.dimowner.audiorecorder.v2.data.model.RecordingFormat
 import com.dimowner.audiorecorder.v2.data.model.RenameSpeechMode
 import com.dimowner.audiorecorder.v2.data.model.SampleRate
@@ -352,6 +356,38 @@ class PrefsV2Impl @Inject internal constructor(@ApplicationContext context: Cont
             }
         }
 
+    override var bluetoothCaptureRoute: BluetoothCaptureRoute
+        get() = readEnum(PREF_KEY_BLUETOOTH_CAPTURE_ROUTE, BluetoothCaptureRoute.STANDARD_SCO)
+        set(value) = writeEnum(PREF_KEY_BLUETOOTH_CAPTURE_ROUTE, value)
+
+    override var bluetoothAudioMode: BluetoothAudioMode
+        get() = readEnum(PREF_KEY_BLUETOOTH_AUDIO_MODE, BluetoothAudioMode.IN_COMMUNICATION)
+        set(value) = writeEnum(PREF_KEY_BLUETOOTH_AUDIO_MODE, value)
+
+    override var inputPreprocessingPolicy: InputPreprocessingPolicy
+        get() = readEnum(PREF_KEY_INPUT_PREPROCESSING_POLICY, InputPreprocessingPolicy.SYSTEM_DEFAULT)
+        set(value) = writeEnum(PREF_KEY_INPUT_PREPROCESSING_POLICY, value)
+
+    override var pcmGainMode: PcmGainMode
+        get() = readEnum(PREF_KEY_PCM_GAIN_MODE, PcmGainMode.OFF)
+        set(value) = writeEnum(PREF_KEY_PCM_GAIN_MODE, value)
+
+    private inline fun <reified T : Enum<T>> readEnum(key: String, default: T): T {
+        val name = sharedPreferences.getString(key, null) ?: return default
+        // Enum's name lookup is cached, unlike scanning entries on every preference read.
+        // Unknown names can be left by newer app versions; fall back without rewriting them.
+        return try {
+            enumValueOf<T>(name)
+        } catch (_: IllegalArgumentException) {
+            default
+        }
+    }
+
+    private fun writeEnum(key: String, value: Enum<*>) {
+        // Ordinals are not stable when a future release inserts another experimental option.
+        sharedPreferences.edit { putString(key, value.name) }
+    }
+
     override var maxRecordingDurationMills: Int
         get() = sharedPreferences.getInt(
             PREF_KEY_MAX_RECORDING_DURATION_MILLS,
@@ -376,6 +412,11 @@ class PrefsV2Impl @Inject internal constructor(@ApplicationContext context: Cont
 
     override fun resetRecordingSettings() {
         sharedPreferences.edit {
+            remove(PREF_KEY_BLUETOOTH_CAPTURE_ROUTE)
+            remove(PREF_KEY_BLUETOOTH_AUDIO_MODE)
+            remove(PREF_KEY_INPUT_PREPROCESSING_POLICY)
+            remove(PREF_KEY_PCM_GAIN_MODE)
+            remove(PREF_KEY_SETTING_AUDIO_SOURCE)
             putString(
                 PREF_KEY_SETTING_RECORDING_FORMAT,
                 DefaultValues.DefaultRecordingFormat.value
@@ -412,6 +453,10 @@ class PrefsV2Impl @Inject internal constructor(@ApplicationContext context: Cont
         private const val PREF_KEY_IS_DARK_THEME = "pref_is_dark_theme"
         private const val PREF_KEY_MAX_RECORDING_DURATION_MILLS = "pref_key_max_recording_duration_mills"
         private const val PREF_KEY_SETTING_AUDIO_SOURCE = "pref_key_setting_audio_source"
+        private const val PREF_KEY_BLUETOOTH_CAPTURE_ROUTE = "pref_key_bluetooth_capture_route"
+        private const val PREF_KEY_BLUETOOTH_AUDIO_MODE = "pref_key_bluetooth_audio_mode"
+        private const val PREF_KEY_INPUT_PREPROCESSING_POLICY = "pref_key_input_preprocessing_policy"
+        private const val PREF_KEY_PCM_GAIN_MODE = "pref_key_pcm_gain_mode"
         private const val PREF_KEY_RECORD_AUTHOR_NAME = "pref_key_record_author_name"
         private const val PREF_KEY_FLOATING_RECORDER_OVERLAY_ENABLED =
             "pref_key_floating_recorder_overlay_enabled"
