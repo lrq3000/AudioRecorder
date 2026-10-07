@@ -333,6 +333,7 @@ internal fun SettingsScreen(
                     onAction = onAction,
                     enabled = uiState.isRecordingSettingEditable,
                 )
+                BluetoothExperimentSettings(uiState, onAction)
                 Spacer(modifier = Modifier.size(8.dp))
                 SettingsItem(stringResource(R.string.rate_app), R.drawable.ic_thumbs) {
                     rateApp(context)

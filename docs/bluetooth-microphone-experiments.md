@@ -1,0 +1,99 @@
+# Bluetooth microphone experiment
+
+Use **V2 → Settings → Experimental Bluetooth microphone**. The Audio source selector is just
+above this section. Enable the Bluetooth microphone switch on Home before recording. Choose
+WAV first; direct M4A also supports the experiment. Settings persist across app restart and
+apply to subsequent recordings. Stop recording before changing a dimension.
+
+Defaults preserve the previous capture choices: standard routing, communication mode,
+system-default effects, gain off, and your existing audio source. “Reset recording settings”
+resets the experiments too. All choices coexist in the same debug APK.
+
+## Compare continuity first
+
+Keep headset position, speaking volume, sample rate, channels, and a short spoken passage
+constant. Include a few seconds of silence, normal speech, and quieter speech. Name each take
+with its test letter. Compare **continuous intelligible speech**, not just loudness.
+
+| Test | Route | Mode | Source | Android preprocessing | Gain |
+|---|---|---|---|---|---|
+| A | STANDARD_SCO | IN_COMMUNICATION | MIC | SYSTEM_DEFAULT | OFF |
+| B | STANDARD_SCO | IN_COMMUNICATION | VOICE_RECOGNITION | SYSTEM_DEFAULT | OFF |
+| C | STANDARD_SCO | IN_COMMUNICATION | VOICE_RECOGNITION | DISABLE_NS_AEC_AGC | OFF |
+| D | STANDARD_SCO | NORMAL | VOICE_RECOGNITION | DISABLE_NS_AEC_AGC | OFF |
+| E | HFP_VOICE_RECOGNITION | IN_COMMUNICATION | VOICE_RECOGNITION | DISABLE_NS_AEC_AGC | OFF |
+| F | Best continuous A–E route | same | same | same | DB_PLUS_6 |
+| G | Best continuous A–E route | same | same | same | DB_PLUS_12 |
+| H | Best continuous A–E route | same | same | same | AUTO_LEVEL |
+
+Also available independently: DB_PLUS_18, DISABLE_NS, DISABLE_NS_AEC, AGC_ONLY
+(NS off, AEC off, AGC on), and the existing microphone sources.
+
+Gain is applied **after** Android/headset capture. It cannot reconstruct speech replaced by
+silence upstream. If A–E remain chopped, louder output from F–H does not solve that problem.
+Auto level targets approximately −18 dBFS RMS with at most +18 dB gain, 50 ms gain-reduction
+and 500 ms gain-increase time constants, saturation at PCM16 limits, and gain relaxing to
+unity below −60 dBFS. It never mutes samples as a noise gate would.
+
+## Read the diagnostics for every take
+
+“Show current diagnostics” reports routing, the device, requested/observed mode, HFP request
+result, connection state, current/last recording backend, source, session ID, format, and
+effect availability/control/result. You can select and copy this text. It lasts for the
+current app process; settings themselves are persisted. Reopening the process starts fresh
+diagnostic evidence. A successful routing request is not readiness: legacy SCO/HFP must
+report connected audio, with an eight-second timeout and explicit failure.
+
+On Android 12+, STANDARD_SCO means the existing **modern communication-device API**;
+NORMAL is not applied to that path. HFP requests the classic headset profile and requires
+Nearby devices / BLUETOOTH_CONNECT permission on Android 12+. No scan or location
+permission is used. HFP may be rejected by a headset or Android version. It never silently
+falls back to SCO. With multiple HFP headsets and no unambiguous device match, disconnect
+the others. Legacy standard SCO device choice remains controlled by Android.
+
+The NS/AEC/AGC controls report only Java audio-effect state. They cannot establish whether
+all headset, HAL, or vendor DSP is bypassed. UNPROCESSED may still fall back on a device.
+SYSTEM_DEFAULT leaves the effect enabled states untouched.
+
+3GP and M4A's MediaRecorder fallback do not expose PCM or these input effect controls:
+diagnostics explicitly say **NOT APPLIED**. System-playback capture bypasses microphone
+effects and software gain. A requested file sample rate does not prove a Bluetooth link
+sample rate or codec.
+
+## Verification
+
+```text
+gradlew.bat testDebugConfigDebugUnitTest --console=plain
+gradlew.bat assembleDebugConfigDebug --console=plain
+gradlew.bat connectedDebugConfigDebugAndroidTest --console=plain
+```
+
+The repository currently ignores unit-test failures at Gradle task level: inspect
+`app/build/test-results/testDebugConfigDebugUnitTest/TEST-*.xml` for failures/errors.
+Unit tests exercise PCM math, settings persistence, effect policies/control failures,
+and simulated SCO/HFP lifecycle. Emulator testing exercises app settings and recording;
+it cannot validate the Fresh ’n Rebel/Huawei Bluetooth audio path. Run A–H on the actual
+headset/phone to determine whether any route produces continuous normal-volume speech.
+
+### LDPlayer validation notes (2026-10-07)
+
+On LDPlayer Android 9 / API 28, the experimental selectors persisted across a process
+restart. A WAV take with VOICE_RECOGNITION, DISABLE_NS_AEC_AGC and +12 dB saved successfully.
+The UI correctly identified the built-in input, Bluetooth routing not applied, and all
+three Java effects unavailable. The microphone test captures PCM across every preprocessing
+policy; all six existing direct-AAC recording/lifecycle tests also pass on this target.
+Fresh-default M4A recording and direct M4A with AUTO_LEVEL also saved successfully. Selecting
+AUTO_LEVEL with 3GP saved a normal recording and explicitly displayed “Effects and software
+gain NOT APPLIED”. The final unit run passed 529 tests, and the debug APK assembled.
+
+The full connected suite ran 332 tests with six locale-sensitive failures on this French
+emulator: `v2.app.AppExtensionsTest` expects English `year/day`, and five
+`v2.app.records.RecordsExtensionsTest` assertions look up literal English keys such as
+`Jun 22, 2025`. These files and their date-formatting implementation are outside this change.
+The focused audio package passes all seven tests:
+
+```text
+gradlew.bat connectedDebugConfigDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.package=com.dimowner.audiorecorder.v2.audio --console=plain --max-workers=2
+```
+
+Do not interpret those emulator checks as evidence about the Fresh ’n Rebel Bluetooth link.

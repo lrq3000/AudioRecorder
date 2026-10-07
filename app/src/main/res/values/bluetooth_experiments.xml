@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="bluetooth_experiment_title">Experimental Bluetooth microphone</string>
+    <string name="bluetooth_experiment_help">Use the Audio source selector above and enable the Bluetooth microphone switch on Home. Changes apply to the next recording. NORMAL mode applies only to classic routes. Effects and gain apply to WAV and direct M4A microphone capture; gain cannot recover missing speech.</string>
+    <string name="bluetooth_experiment_route">Bluetooth capture route</string>
+    <string name="bluetooth_experiment_mode">Bluetooth audio mode</string>
+    <string name="bluetooth_experiment_preprocessing">Android preprocessing</string>
+    <string name="bluetooth_experiment_gain">Software gain</string>
+    <string name="bluetooth_experiment_diagnostics">Show current diagnostics</string>
+    <string name="bluetooth_experiment_permission_denied">Bluetooth permission denied. HFP experiments will fail until permission is granted. Select HFP again to retry.</string>
+</resources>

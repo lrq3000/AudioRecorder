@@ -20,6 +20,7 @@ import com.dimowner.audiorecorder.exception.InvalidOutputFile
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import io.mockk.slot
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.launch
@@ -145,5 +146,25 @@ class M4aRecorderV2Test {
         verify { mediaRecorder.resumeRecording() }
         verify { mediaRecorder.stopRecording() }
         verify(exactly = 0) { codecRecorder.stopRecording() }
+    }
+
+    @Test
+    fun `a Bluetooth failure stop prevents a queued MediaRecorder fallback`() = runTest {
+        val failureListener = slot<(String) -> Unit>()
+        every { codecRecorder.startFailureListener = capture(failureListener) } answers { Unit }
+        stubCodecStart(AacCodecRecorderV2.StartResult.Started)
+        val recorder = createRecorder()
+        val events = mutableListOf<RecorderEvent>()
+        val collector = launch { recorder.subscribeRecorderEvents().collect { events += it } }
+        advanceUntilIdle()
+        recorder.start()
+        // The codec can already have cleared its recording flag when the service stops after
+        // losing Bluetooth. A queued startup-failure callback must not reopen the phone mic.
+        recorder.stopRecording()
+        failureListener.captured("no-output")
+        advanceUntilIdle()
+        verify(exactly = 0) { mediaRecorder.startRecording(any(), any(), any(), any(), any(), any()) }
+        assertTrue(events.any { it is RecorderEvent.OnError })
+        collector.cancel()
     }
 }

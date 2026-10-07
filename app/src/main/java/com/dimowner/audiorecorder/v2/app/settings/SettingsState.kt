@@ -24,6 +24,10 @@ import com.dimowner.audiorecorder.v2.data.model.NameFormat
 import com.dimowner.audiorecorder.v2.data.model.RecordingFormat
 import com.dimowner.audiorecorder.v2.data.model.SampleRate
 import kotlinx.parcelize.Parcelize
+import com.dimowner.audiorecorder.v2.data.model.BluetoothCaptureRoute
+import com.dimowner.audiorecorder.v2.data.model.BluetoothAudioMode
+import com.dimowner.audiorecorder.v2.data.model.InputPreprocessingPolicy
+import com.dimowner.audiorecorder.v2.data.model.PcmGainMode
 
 @Parcelize
 data class SettingsState(
@@ -53,6 +57,11 @@ data class SettingsState(
     val recordAuthorName: String,
     /** True when the user previously used V1 and intentionally switched to V2. */
     val isLegacyAppUser: Boolean = false,
+    val bluetoothCaptureRoute: BluetoothCaptureRoute = BluetoothCaptureRoute.STANDARD_SCO,
+    val bluetoothAudioMode: BluetoothAudioMode = BluetoothAudioMode.IN_COMMUNICATION,
+    val inputPreprocessingPolicy: InputPreprocessingPolicy = InputPreprocessingPolicy.SYSTEM_DEFAULT,
+    val pcmGainMode: PcmGainMode = PcmGainMode.OFF,
+    val captureDiagnostics: String = "",
 ) : Parcelable
 
 @Parcelize
