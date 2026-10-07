@@ -457,6 +457,7 @@
     <string name="audio_source_default">Default</string>
     <string name="audio_source_mic">Mic</string>
     <string name="audio_source_voice_communication">Voice Communication</string>
+    <string name="audio_source_voice_recognition">Voice Recognition</string>
     <string name="audio_source_unprocessed">Unprocessed</string>
     <string name="audio_source_system">System Audio</string>
 

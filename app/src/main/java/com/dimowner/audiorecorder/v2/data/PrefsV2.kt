@@ -18,9 +18,13 @@ package com.dimowner.audiorecorder.v2.data
 
 import com.dimowner.audiorecorder.v2.data.model.AudioSource
 import com.dimowner.audiorecorder.v2.data.model.BitRate
+import com.dimowner.audiorecorder.v2.data.model.BluetoothAudioMode
+import com.dimowner.audiorecorder.v2.data.model.BluetoothCaptureRoute
 import com.dimowner.audiorecorder.v2.data.model.ChannelCount
+import com.dimowner.audiorecorder.v2.data.model.InputPreprocessingPolicy
 import com.dimowner.audiorecorder.v2.data.model.NameFormat
 import com.dimowner.audiorecorder.v2.data.model.NameFormatToken
+import com.dimowner.audiorecorder.v2.data.model.PcmGainMode
 import com.dimowner.audiorecorder.v2.data.model.RecordingFormat
 import com.dimowner.audiorecorder.v2.data.model.RenameSpeechMode
 import com.dimowner.audiorecorder.v2.data.model.SampleRate
@@ -89,6 +93,12 @@ interface PrefsV2 {
     var settingBitrate: BitRate
     var settingChannelCount: ChannelCount
     var settingAudioSource: AudioSource
+
+    /** Experimental capture settings; defaults preserve system routing and input processing. */
+    var bluetoothCaptureRoute: BluetoothCaptureRoute
+    var bluetoothAudioMode: BluetoothAudioMode
+    var inputPreprocessingPolicy: InputPreprocessingPolicy
+    var pcmGainMode: PcmGainMode
 
     var maxRecordingDurationMills: Int
 
