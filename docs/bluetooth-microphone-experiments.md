@@ -1,17 +1,36 @@
 # Bluetooth microphone experiment
 
-Use **V2 → Settings → Experimental Bluetooth microphone**. The Audio source selector is just
-above this section. Enable the Bluetooth microphone switch on Home before recording. Choose
-WAV first; direct M4A also supports the experiment. Settings persist across app restart and
-apply to subsequent recordings. Stop recording before changing a dimension.
+Use **V2 → Settings → Enhanced Bluetooth voice recognition**. Enable the Bluetooth microphone
+switch on Home before recording. Choose WAV first; direct M4A also supports the experiment.
+Settings persist across app restart and apply to subsequent recordings. Stop recording before
+changing a dimension.
+
+| Selection | Behavior |
+|---|---|
+| Disabled | Restores DEFAULT source, STANDARD_SCO, IN_COMMUNICATION, SYSTEM_DEFAULT preprocessing and gain OFF. |
+| HFP preset | Applies the user-tested VOICE_RECOGNITION source, HFP_VOICE_RECOGNITION route, NORMAL mode, AGC_ONLY preprocessing and AUTO_LEVEL gain together. |
+| Custom | Keeps the current values and opens the collapsible **Experimental Bluetooth microphone** section below. |
+
+The individual experimental controls are visible only in Custom. Every selector has a
+right-hand dropdown arrow; tap the experimental section header to collapse or expand it.
+The **Audio source** selector remains in recording settings. Changing that source or an
+individual experimental value switches the enhancement selection to Custom, so the preset
+label continues to describe the actual configuration. Diagnostics remain available in all
+three modes, including when the Custom section is collapsed.
+
+Upgrading preserves existing settings: the exact HFP combination is recognized as HFP preset,
+the standard combination as Disabled, and any other combination as Custom. Selecting Custom
+keeps the currently active combination; it does not restore an earlier custom snapshot.
+Preset changes do not alter the recording format, sample rate, or Bluetooth switch preference.
 
 Defaults preserve the previous capture choices: standard routing, communication mode,
 system-default effects, gain off, and your existing audio source. “Reset recording settings”
-resets the experiments too. All choices coexist in the same debug APK.
+resets the experiments and selects Disabled. All choices coexist in the same debug APK.
 
 ## Compare continuity first
 
-Keep headset position, speaking volume, sample rate, channels, and a short spoken passage
+Select **Custom** to run the matrix below. Keep headset position, speaking volume, sample rate,
+channels, and a short spoken passage
 constant. Include a few seconds of silence, normal speech, and quieter speech. Name each take
 with its test letter. Compare **continuous intelligible speech**, not just loudness.
 
@@ -97,3 +116,12 @@ gradlew.bat connectedDebugConfigDebugAndroidTest -Pandroid.testInstrumentationRu
 ```
 
 Do not interpret those emulator checks as evidence about the Fresh ’n Rebel Bluetooth link.
+
+### Preset UI follow-up (2026-10-08)
+
+The preset/collapsible-settings update passes 557 unit tests and builds the debug APK.
+LDPlayer checks cover migration of existing choices, all three selections, preservation of
+the HFP selection across process restart and app update, Custom expand/collapse, visible
+dropdown arrows, and diagnostics remaining accessible with the controls collapsed. Live
+recorder-state guards also prevent source edits or Reset from changing the preset if recording
+starts through the floating button after Settings has already opened.
