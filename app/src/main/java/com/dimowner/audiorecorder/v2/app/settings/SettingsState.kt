@@ -26,6 +26,7 @@ import com.dimowner.audiorecorder.v2.data.model.SampleRate
 import kotlinx.parcelize.Parcelize
 import com.dimowner.audiorecorder.v2.data.model.BluetoothCaptureRoute
 import com.dimowner.audiorecorder.v2.data.model.BluetoothAudioMode
+import com.dimowner.audiorecorder.v2.data.model.BluetoothVoiceEnhancement
 import com.dimowner.audiorecorder.v2.data.model.InputPreprocessingPolicy
 import com.dimowner.audiorecorder.v2.data.model.PcmGainMode
 
@@ -61,6 +62,7 @@ data class SettingsState(
     val bluetoothAudioMode: BluetoothAudioMode = BluetoothAudioMode.IN_COMMUNICATION,
     val inputPreprocessingPolicy: InputPreprocessingPolicy = InputPreprocessingPolicy.SYSTEM_DEFAULT,
     val pcmGainMode: PcmGainMode = PcmGainMode.OFF,
+    val bluetoothVoiceEnhancement: BluetoothVoiceEnhancement = BluetoothVoiceEnhancement.DISABLED,
     val captureDiagnostics: String = "",
 ) : Parcelable
 

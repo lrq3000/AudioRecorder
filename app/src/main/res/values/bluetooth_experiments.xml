@@ -1,7 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="bluetooth_voice_enhancement_title">Enhanced Bluetooth voice recognition</string>
+    <string name="bluetooth_voice_enhancement_disabled">Disabled</string>
+    <string name="bluetooth_voice_enhancement_hfp">HFP preset</string>
+    <string name="bluetooth_voice_enhancement_custom">Custom</string>
+    <string name="bluetooth_voice_enhancement_disabled_summary">Enhancement off. Standard capture settings are restored.</string>
+    <string name="bluetooth_voice_enhancement_hfp_summary">Voice Recognition · HFP voice recognition · Normal · AGC only · Auto level</string>
+    <string name="bluetooth_voice_enhancement_custom_summary">Adjust the audio source above and the experimental options below.</string>
+    <string name="bluetooth_experiment_expand">Expand experimental settings</string>
+    <string name="bluetooth_experiment_collapse">Collapse experimental settings</string>
+    <string name="bluetooth_experiment_expanded">Expanded</string>
+    <string name="bluetooth_experiment_collapsed">Collapsed</string>
     <string name="bluetooth_experiment_title">Experimental Bluetooth microphone</string>
-    <string name="bluetooth_experiment_help">Use the Audio source selector above and enable the Bluetooth microphone switch on Home. Changes apply to the next recording. NORMAL mode applies only to classic routes. Effects and gain apply to WAV and direct M4A microphone capture; gain cannot recover missing speech.</string>
+    <string name="bluetooth_experiment_help">Enable the Bluetooth microphone switch on Home. Changes apply to the next recording. Effects and gain require WAV or direct M4A microphone capture.</string>
     <string name="bluetooth_experiment_route">Bluetooth capture route</string>
     <string name="bluetooth_experiment_mode">Bluetooth audio mode</string>
     <string name="bluetooth_experiment_preprocessing">Android preprocessing</string>
