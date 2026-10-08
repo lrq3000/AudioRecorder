@@ -20,6 +20,7 @@ import com.dimowner.audiorecorder.v2.data.model.AudioSource
 import com.dimowner.audiorecorder.v2.data.model.BitRate
 import com.dimowner.audiorecorder.v2.data.model.BluetoothAudioMode
 import com.dimowner.audiorecorder.v2.data.model.BluetoothCaptureRoute
+import com.dimowner.audiorecorder.v2.data.model.BluetoothVoiceEnhancement
 import com.dimowner.audiorecorder.v2.data.model.ChannelCount
 import com.dimowner.audiorecorder.v2.data.model.InputPreprocessingPolicy
 import com.dimowner.audiorecorder.v2.data.model.NameFormat
@@ -99,6 +100,9 @@ interface PrefsV2 {
     var bluetoothAudioMode: BluetoothAudioMode
     var inputPreprocessingPolicy: InputPreprocessingPolicy
     var pcmGainMode: PcmGainMode
+
+    /** Selecting a fixed preset applies its five capture choices together; Custom keeps them. */
+    var bluetoothVoiceEnhancement: BluetoothVoiceEnhancement
 
     var maxRecordingDurationMills: Int
 
