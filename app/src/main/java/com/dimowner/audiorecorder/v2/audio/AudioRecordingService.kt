@@ -696,7 +696,7 @@ class AudioRecordingService : Service() {
             try { audioManagerHelper.prepareRecording() } finally { waitingForBluetooth = false }
         } else true
         if (!recordingStartGuard.mayStart(routeReady)) {
-            emitEvent(AudioRecordingServiceEvent.ShowErrorSnack("Bluetooth route failed. See Experimental Bluetooth microphone diagnostics."))
+            emitEvent(AudioRecordingServiceEvent.ShowErrorSnack("Bluetooth route failed. See current diagnostics in Settings."))
             stopForegroundService()
             return null
         }

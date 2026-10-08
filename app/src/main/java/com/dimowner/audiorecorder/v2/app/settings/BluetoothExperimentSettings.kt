@@ -27,13 +27,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.dimowner.audiorecorder.R
@@ -49,8 +48,6 @@ import com.dimowner.audiorecorder.v2.app.components.DISABLED_ALPHA
 internal fun BluetoothExperimentSettings(state: SettingsState, onAction: (SettingsScreenAction) -> Unit) {
     val context = LocalContext.current
     var showDiagnostics by rememberSaveable { mutableStateOf(false) }
-    // Entering Custom reveals its options immediately; collapsing them never changes capture.
-    var customExpanded by rememberSaveable(state.bluetoothVoiceEnhancement) { mutableStateOf(true) }
     var permissionDenied by remember { mutableStateOf(false) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         permissionDenied = !granted
@@ -78,37 +75,27 @@ internal fun BluetoothExperimentSettings(state: SettingsState, onAction: (Settin
             BluetoothVoiceEnhancement.HFP_PRESET -> R.string.bluetooth_voice_enhancement_hfp_summary
             BluetoothVoiceEnhancement.CUSTOM -> R.string.bluetooth_voice_enhancement_custom_summary
         }), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(bottom = 8.dp))
-        Text(stringResource(R.string.bluetooth_experiment_help), style = MaterialTheme.typography.bodySmall)
         if (state.bluetoothVoiceEnhancement == BluetoothVoiceEnhancement.CUSTOM) {
-            val collapseAction = stringResource(if (customExpanded) R.string.bluetooth_experiment_collapse else R.string.bluetooth_experiment_expand)
-            val expansionState = stringResource(if (customExpanded) R.string.bluetooth_experiment_expanded else R.string.bluetooth_experiment_collapsed)
-            Row(Modifier.fillMaxWidth()
-                .semantics { stateDescription = expansionState }
-                .clickable(role = Role.Button, onClickLabel = collapseAction) { customExpanded = !customExpanded }
-                .padding(vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.bluetooth_experiment_title), style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.weight(1f))
-                Icon(painterResource(R.drawable.ic_arrow_down), contentDescription = null,
-                    modifier = Modifier.size(24.dp).rotate(if (customExpanded) 180f else 0f))
+            // Custom exposes its controls directly. Only actual selectors carry dropdown arrows.
+            Text(stringResource(R.string.bluetooth_experiment_title), style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp).semantics { heading() })
+            Text(stringResource(R.string.bluetooth_experiment_help), style = MaterialTheme.typography.bodySmall)
+            ExperimentSelector(stringResource(R.string.bluetooth_experiment_route), state.bluetoothCaptureRoute,
+                BluetoothCaptureRoute.entries, state.isRecordingSettingEditable) { value ->
+                onAction(SettingsScreenAction.SetExperiment.Route(value))
+                if (value == BluetoothCaptureRoute.HFP_VOICE_RECOGNITION) requestHfpPermissionIfNeeded()
             }
-            if (customExpanded) {
-                ExperimentSelector(stringResource(R.string.bluetooth_experiment_route), state.bluetoothCaptureRoute,
-                    BluetoothCaptureRoute.entries, state.isRecordingSettingEditable) { value ->
-                    onAction(SettingsScreenAction.SetExperiment.Route(value))
-                    if (value == BluetoothCaptureRoute.HFP_VOICE_RECOGNITION) requestHfpPermissionIfNeeded()
-                }
-                ExperimentSelector(stringResource(R.string.bluetooth_experiment_mode), state.bluetoothAudioMode,
-                    BluetoothAudioMode.entries, state.isRecordingSettingEditable) { onAction(SettingsScreenAction.SetExperiment.Mode(it)) }
-                ExperimentSelector(stringResource(R.string.bluetooth_experiment_preprocessing), state.inputPreprocessingPolicy,
-                    InputPreprocessingPolicy.entries, state.isRecordingSettingEditable) { onAction(SettingsScreenAction.SetExperiment.Preprocessing(it)) }
-                ExperimentSelector(stringResource(R.string.bluetooth_experiment_gain), state.pcmGainMode,
-                    PcmGainMode.entries, state.isRecordingSettingEditable) { onAction(SettingsScreenAction.SetExperiment.Gain(it)) }
-            }
+            ExperimentSelector(stringResource(R.string.bluetooth_experiment_mode), state.bluetoothAudioMode,
+                BluetoothAudioMode.entries, state.isRecordingSettingEditable) { onAction(SettingsScreenAction.SetExperiment.Mode(it)) }
+            ExperimentSelector(stringResource(R.string.bluetooth_experiment_preprocessing), state.inputPreprocessingPolicy,
+                InputPreprocessingPolicy.entries, state.isRecordingSettingEditable) { onAction(SettingsScreenAction.SetExperiment.Preprocessing(it)) }
+            ExperimentSelector(stringResource(R.string.bluetooth_experiment_gain), state.pcmGainMode,
+                PcmGainMode.entries, state.isRecordingSettingEditable) { onAction(SettingsScreenAction.SetExperiment.Gain(it)) }
         }
         if (permissionDenied && state.bluetoothCaptureRoute == BluetoothCaptureRoute.HFP_VOICE_RECOGNITION) {
             Text(stringResource(R.string.bluetooth_experiment_permission_denied), color = MaterialTheme.colorScheme.error)
         }
-        // Diagnostics stay accessible with Disabled/HFP selected and with Custom collapsed.
+        // Diagnostics stay accessible in every preset mode.
         TextButton(onClick = { showDiagnostics = !showDiagnostics }) { Text(stringResource(R.string.bluetooth_experiment_diagnostics)) }
         if (showDiagnostics) SelectionContainer { Text(state.captureDiagnostics, style = MaterialTheme.typography.bodySmall) }
     }
