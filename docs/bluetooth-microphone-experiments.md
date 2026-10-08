@@ -1,6 +1,6 @@
 # Bluetooth microphone experiment
 
-Use **V2 → Settings → Enhanced Bluetooth voice recognition**. Enable the Bluetooth microphone
+Use **V2 → Settings → Enhanced Bluetooth microphone sound**. Enable the Bluetooth microphone
 switch on Home before recording. Choose WAV first; direct M4A also supports the experiment.
 Settings persist across app restart and apply to subsequent recordings. Stop recording before
 changing a dimension.
@@ -8,17 +8,18 @@ changing a dimension.
 | Selection | Behavior |
 |---|---|
 | Disabled | Restores DEFAULT source, STANDARD_SCO, IN_COMMUNICATION, SYSTEM_DEFAULT preprocessing and gain OFF. |
-| HFP preset | Applies the user-tested VOICE_RECOGNITION source, HFP_VOICE_RECOGNITION route, NORMAL mode, AGC_ONLY preprocessing and AUTO_LEVEL gain together. |
-| Custom | Keeps the current values and opens the collapsible **Experimental Bluetooth microphone** section below. |
+| HFP Clear Voice preset | Applies the user-tested VOICE_RECOGNITION source, HFP_VOICE_RECOGNITION route, NORMAL mode, AGC_ONLY preprocessing and AUTO_LEVEL gain together. |
+| Custom | Keeps the current values and directly shows all selectors under **Bluetooth microphone routing and processing**. |
 
 The individual experimental controls are visible only in Custom. Every selector has a
-right-hand dropdown arrow; tap the experimental section header to collapse or expand it.
+right-hand dropdown arrow. The section heading is plain text, and the setup guidance appears
+below it only in Custom mode. There is no additional expand/collapse action.
 The **Audio source** selector remains in recording settings. Changing that source or an
 individual experimental value switches the enhancement selection to Custom, so the preset
 label continues to describe the actual configuration. Diagnostics remain available in all
-three modes, including when the Custom section is collapsed.
+three modes.
 
-Upgrading preserves existing settings: the exact HFP combination is recognized as HFP preset,
+Upgrading preserves existing settings: the exact HFP combination is recognized as HFP Clear Voice preset,
 the standard combination as Disabled, and any other combination as Custom. Selecting Custom
 keeps the currently active combination; it does not restore an earlier custom snapshot.
 Preset changes do not alter the recording format, sample rate, or Bluetooth switch preference.
