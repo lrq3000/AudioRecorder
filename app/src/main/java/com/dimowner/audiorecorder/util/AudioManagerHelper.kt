@@ -149,8 +149,8 @@ class AudioManagerHelper @Inject constructor(
     /**
      * Enables or disables Bluetooth microphone routing for audio recording.
      *
-     * On API 31+ (Android 12+), uses the modern setCommunicationDevice() API.
-     * On older versions, falls back to startBluetoothSco() / stopBluetoothSco().
+     * Uses the selected SCO, HFP voice-recognition, or communication-device API.
+     * An unavailable API is reported as unsupported, never replaced by another route.
      *
      * @param enable true to enable Bluetooth microphone, false to disable.
      */
@@ -190,8 +190,8 @@ class AudioManagerHelper @Inject constructor(
 
     /**
      * Selects a specific Bluetooth device for audio input.
-     * For API 31+: Uses AudioManager.setCommunicationDevice(selectedDevice)
-     * For API < 31: Uses startBluetoothSco() (specific device routing limited by system)
+     * The selected capture route determines which API is requested. Standard SCO link
+     * establishment is system-managed; capture input selection is verified separately.
      *
      * @param device The BluetoothDeviceInfo to select, or null to clear selection
      */
@@ -203,9 +203,7 @@ class AudioManagerHelper @Inject constructor(
         updateBluetoothDeviceState()
     }
 
-    /**
-     * Modern API (31+) implementation for Bluetooth microphone routing.
-     */
+    /** Releases only routing requested by this helper. */
     private fun disableBluetoothRouting() {
         routeController.stop()
     }

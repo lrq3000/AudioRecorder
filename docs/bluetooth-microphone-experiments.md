@@ -64,8 +64,12 @@ current app process; settings themselves are persisted. Reopening the process st
 diagnostic evidence. A successful routing request is not readiness: legacy SCO/HFP must
 report connected audio, with an eight-second timeout and explicit failure.
 
-On Android 12+, STANDARD_SCO means the existing **modern communication-device API**;
-NORMAL is not applied to that path. HFP requests the classic headset profile and requires
+The route selector is literal: STANDARD_SCO requests `startBluetoothSco()`,
+HFP_VOICE_RECOGNITION requests `BluetoothHeadset.startVoiceRecognition()`, and
+COMMUNICATION_DEVICE explicitly requests `setCommunicationDevice()` (Android 12+).
+The selected NORMAL or IN_COMMUNICATION mode is requested independently on every route.
+An unsupported route or an observed mode mismatch is reported instead of substituting another
+mechanism. HFP requests the classic headset profile and requires
 Nearby devices / BLUETOOTH_CONNECT permission on Android 12+. No scan or location
 permission is used. HFP may be rejected by a headset or Android version. It never silently
 falls back to SCO. With multiple HFP headsets and no unambiguous device match, disconnect

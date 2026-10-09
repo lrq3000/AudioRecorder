@@ -46,7 +46,9 @@ class BluetoothCaptureControllerTest {
                 else -> super.getSystemService(name)
             }
         }
-        every { manager.mode } returns AudioManager.MODE_NORMAL
+        var actualMode = AudioManager.MODE_NORMAL
+        every { manager.mode } answers { actualMode }
+        every { manager.mode = any() } answers { actualMode = firstArg() }
         every { bluetooth.adapter } returns adapter
         every { adapter.isEnabled } returns true
         every { adapter.getProfileProxy(any(), capture(listener), BluetoothProfile.HEADSET) } returns true
@@ -127,5 +129,44 @@ class BluetoothCaptureControllerTest {
         assertTrue(controller.state.value.message.contains("no device fallback"))
         verify(exactly = 0) { proxy.startVoiceRecognition(any()) }
         verify { adapter.closeProfileProxy(BluetoothProfile.HEADSET, proxy) }
+    }
+
+    @Test @Config(sdk = [31, 36])
+    fun `Standard SCO with Normal never forces communication mode or substitutes modern routing`() {
+        controller.start(BluetoothCaptureRoute.STANDARD_SCO, BluetoothAudioMode.NORMAL, input)
+        verify { manager.mode = AudioManager.MODE_NORMAL }
+        verify(exactly = 0) { manager.mode = AudioManager.MODE_IN_COMMUNICATION }
+        verify { manager.startBluetoothSco() }
+        verify(exactly = 0) { manager.setCommunicationDevice(any()) }
+        controller.stop()
+    }
+
+    @Test @Config(sdk = [31, 36])
+    fun `explicit modern route honors each selected audio mode`() {
+        every { manager.setCommunicationDevice(input) } returns true
+        every { manager.communicationDevice } returns input
+        for (mode in BluetoothAudioMode.entries) {
+            controller.start(BluetoothCaptureRoute.COMMUNICATION_DEVICE, mode, input)
+            assertEquals(if (mode == BluetoothAudioMode.NORMAL) AudioManager.MODE_NORMAL else AudioManager.MODE_IN_COMMUNICATION, manager.mode)
+            assertEquals(BluetoothRoutePhase.READY, controller.state.value.phase)
+            controller.stop()
+        }
+        verify(exactly = 0) { manager.startBluetoothSco() }
+    }
+
+    @Test fun `modern routing on older Android fails rather than silently using SCO`() {
+        controller.start(BluetoothCaptureRoute.COMMUNICATION_DEVICE, BluetoothAudioMode.NORMAL, input)
+        assertEquals(BluetoothRoutePhase.FAILED, controller.state.value.phase)
+        assertTrue(controller.state.value.message.contains("Android 12"))
+        verify(exactly = 0) { manager.startBluetoothSco() }
+    }
+
+    @Test fun `Android rejecting a mode is not reported as ready`() {
+        every { manager.mode } returns AudioManager.MODE_IN_COMMUNICATION
+        controller.start(BluetoothCaptureRoute.STANDARD_SCO, BluetoothAudioMode.NORMAL, input)
+        context.sendBroadcast(Intent(AudioManager.ACTION_SCO_AUDIO_STATE_UPDATED).putExtra(AudioManager.EXTRA_SCO_AUDIO_STATE, AudioManager.SCO_AUDIO_STATE_CONNECTED))
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(BluetoothRoutePhase.FAILED, controller.state.value.phase)
+        assertTrue(controller.state.value.message.contains("mode"))
     }
 }
