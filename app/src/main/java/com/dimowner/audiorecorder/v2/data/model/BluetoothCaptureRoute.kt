@@ -4,4 +4,5 @@ package com.dimowner.audiorecorder.v2.data.model
 enum class BluetoothCaptureRoute {
     STANDARD_SCO,
     HFP_VOICE_RECOGNITION,
+    COMMUNICATION_DEVICE,
 }

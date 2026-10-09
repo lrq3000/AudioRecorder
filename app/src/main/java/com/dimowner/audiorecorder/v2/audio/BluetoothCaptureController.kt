@@ -95,6 +95,10 @@ internal class BluetoothCaptureController(
         val attempt = generation
         publish(BluetoothRoutePhase.CONNECTING, "Requesting route")
         try {
+            if (route == BluetoothCaptureRoute.COMMUNICATION_DEVICE && Build.VERSION.SDK_INT < 31) {
+                fail("Communication-device routing requires Android 12 or newer; no route substitution")
+                return
+            }
             if (route == BluetoothCaptureRoute.HFP_VOICE_RECOGNITION && Build.VERSION.SDK_INT >= 31 &&
                 ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
                 fail("BLUETOOTH_CONNECT permission required; grant it in experimental settings")
@@ -107,8 +111,8 @@ internal class BluetoothCaptureController(
             ContextCompat.registerReceiver(context, receiver, filter, ContextCompat.RECEIVER_EXPORTED)
             receiverRegistered = true
             previousMode = manager.mode
-            val modern = route == BluetoothCaptureRoute.STANDARD_SCO && Build.VERSION.SDK_INT >= 31
-            manager.mode = if (modern || mode == BluetoothAudioMode.IN_COMMUNICATION) AudioManager.MODE_IN_COMMUNICATION else AudioManager.MODE_NORMAL
+            // The selected mode is independent of the route and Android version.
+            manager.mode = mode.value
             timeout = Runnable { if (attempt == generation && mutable.value.phase == BluetoothRoutePhase.CONNECTING) fail("Timed out waiting for connected Bluetooth audio; no fallback") }
                 .also { handler.postDelayed(it, ROUTE_TIMEOUT_MS) }
             if (route == BluetoothCaptureRoute.HFP_VOICE_RECOGNITION) {
@@ -145,17 +149,17 @@ internal class BluetoothCaptureController(
                     }
                 }, BluetoothProfile.HEADSET)
                 if (!accepted) fail("HFP profile proxy request rejected")
-            } else if (Build.VERSION.SDK_INT >= 31) {
+            } else if (route == BluetoothCaptureRoute.COMMUNICATION_DEVICE && Build.VERSION.SDK_INT >= 31) {
                 if (device == null) { fail("No Bluetooth communication device"); return }
                 modernListener = AudioManager.OnCommunicationDeviceChangedListener { current ->
                     if (attempt == generation) {
-                        if (current?.id == targetId) publish(BluetoothRoutePhase.READY, "Communication device selected (modern API; mode experiment not applied)")
+                        if (current?.id == targetId) publish(BluetoothRoutePhase.READY, "Communication device selected via setCommunicationDevice")
                         else if (mutable.value.phase == BluetoothRoutePhase.READY) fail("Communication device changed away from Bluetooth")
                     }
                 }.also { manager.addOnCommunicationDeviceChangedListener(ContextCompat.getMainExecutor(context), it) }
                 modernRequested = true
                 if (!manager.setCommunicationDevice(device)) { fail("setCommunicationDevice returned false"); return }
-                if (manager.communicationDevice?.id == device.id) publish(BluetoothRoutePhase.READY, "Communication device selected (modern API; mode experiment not applied)")
+                if (manager.communicationDevice?.id == device.id) publish(BluetoothRoutePhase.READY, "Communication device selected via setCommunicationDevice")
             } else {
                 if (device == null) { fail("No connected Bluetooth microphone"); return }
                 standardScoStarted = true
@@ -189,8 +193,13 @@ internal class BluetoothCaptureController(
     }
 
     private fun publish(phase: BluetoothRoutePhase, detail: String) {
+        val actualMode = runCatching { manager.mode }.getOrNull()
+        if (phase == BluetoothRoutePhase.READY && actualMode != mode.value) {
+            fail("Android did not apply requested mode $mode (${mode.value}); observed mode=${actualMode ?: "unknown"}")
+            return
+        }
         if (phase != BluetoothRoutePhase.CONNECTING) timeout?.let { handler.removeCallbacks(it) }
-        val message = "Route: $route\nRequested mode: $mode; actual mode: ${manager.mode}\n" +
+        val message = "Route: $route\nRequested mode: $mode; actual mode: ${actualMode ?: "unknown"}\n" +
             "Device: ${deviceName ?: "none"}\nHFP startVoiceRecognition: ${voiceRequest ?: "not attempted"}\n$phase: $detail"
         mutable.value = BluetoothRouteState(phase, message)
         diagnostics.route(message)
