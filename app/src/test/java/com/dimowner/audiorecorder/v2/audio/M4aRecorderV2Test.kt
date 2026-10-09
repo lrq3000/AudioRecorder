@@ -167,4 +167,22 @@ class M4aRecorderV2Test {
         assertTrue(events.any { it is RecorderEvent.OnError })
         collector.cancel()
     }
+
+    @Test fun `fallback cannot silently discard selected PCM gain`() = runTest {
+        stubCodecStart(AacCodecRecorderV2.StartResult.PipelineFailed("codec-start", null))
+        every { mediaRecorder.startRecording(any(), any(), any(), any(), any(), any()) } returns true
+        val recorder = createRecorder()
+        assertFalse(recorder.startRecording(outputFile, 1, 48000, 96000, 0,
+            AudioInput.Mic(MediaRecorder.AudioSource.MIC, gain = com.dimowner.audiorecorder.v2.data.model.PcmGainMode.AUTO_LEVEL)))
+        verify(exactly = 0) { mediaRecorder.startRecording(any(), any(), any(), any(), any(), any()) }
+    }
+
+    @Test fun `fallback cannot silently discard selected preprocessing`() = runTest {
+        stubCodecStart(AacCodecRecorderV2.StartResult.PipelineFailed("codec-start", null))
+        every { mediaRecorder.startRecording(any(), any(), any(), any(), any(), any()) } returns true
+        val recorder = createRecorder()
+        assertFalse(recorder.startRecording(outputFile, 1, 48000, 96000, 0,
+            AudioInput.Mic(MediaRecorder.AudioSource.MIC, preprocessing = com.dimowner.audiorecorder.v2.data.model.InputPreprocessingPolicy.AGC_ONLY)))
+        verify(exactly = 0) { mediaRecorder.startRecording(any(), any(), any(), any(), any(), any()) }
+    }
 }

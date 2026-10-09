@@ -79,10 +79,14 @@ The NS/AEC/AGC controls report only Java audio-effect state. They cannot establi
 all headset, HAL, or vendor DSP is bypassed. UNPROCESSED may still fall back on a device.
 SYSTEM_DEFAULT leaves the effect enabled states untouched.
 
-3GP and M4A's MediaRecorder fallback do not expose PCM or these input effect controls:
-diagnostics explicitly say **NOT APPLIED**. System-playback capture bypasses microphone
-effects and software gain. A requested file sample rate does not prove a Bluetooth link
-sample rate or codec.
+3GP and M4A's MediaRecorder fallback do not expose PCM or these input effect controls.
+They are rejected when a non-default preprocessing policy or enabled software gain is selected,
+instead of dropping that choice. A default-processing/gain-off M4A fallback remains possible
+and is identified in diagnostics. System-audio setup failure never falls back to a microphone;
+unsupported source/format combinations are rejected without rewriting preferences. An AAC
+bitrate exceeding the format/encoder limit is also rejected rather than silently lowered.
+System-playback capture bypasses microphone-only effects and gain. A requested file sample
+rate does not prove a Bluetooth link sample rate or codec.
 
 ## Verification
 

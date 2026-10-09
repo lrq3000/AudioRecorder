@@ -57,6 +57,7 @@ abstract class MediaRecorderBase(
     private val coroutineScope: CoroutineScope,
     /** Where the blocking [MediaRecorder.stop] runs, see [stopRecording]. */
     private val stopDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val diagnostics: CaptureDiagnostics = CaptureDiagnostics(),
 ) : RecorderV2 {
 
     private var timerProgress: Timer? = null
@@ -143,6 +144,11 @@ abstract class MediaRecorderBase(
             emitEvent(RecorderEvent.OnError(RecorderInitException()))
             return false
         }
+        CaptureConfiguration.mediaRecorderProblem(micInput)?.let {
+            diagnostics.session("MediaRecorder start refused: $it")
+            emitEvent(RecorderEvent.OnError(RecorderInitException()))
+            return false
+        }
         // _isRecording only flips to true once the first valid amplitude arrives, so it is still
         // false while the recorder is starting up. Checking the recorder instance as well closes
         // that window: without it a second start would overwrite (and then release) a live
@@ -203,6 +209,7 @@ abstract class MediaRecorderBase(
                 // MediaRecorder.start() throws a plain RuntimeException (not a subclass) when
                 // the hardware source is unavailable or the codec rejects the configuration.
                 Timber.e(e, "start() failed")
+                diagnostics.session("MediaRecorder could not honor the requested configuration: ${e.message}")
                 releaseRecorder()
                 emitEvent(RecorderEvent.OnError(RecorderInitException()))
                 false

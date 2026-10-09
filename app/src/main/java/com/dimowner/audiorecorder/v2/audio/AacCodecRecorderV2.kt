@@ -280,16 +280,16 @@ class AacCodecRecorderV2 @Inject constructor(
 
         val encoderInfo = selectAacEncoder(
             aacEncoderCandidates(sampleRate, channelCount),
-            clampAacBitRate(bitrate, sampleRate, channelCount, Int.MAX_VALUE),
+            bitrate,
         )
-        val encodingBitRate = clampAacBitRate(
-            bitrate, sampleRate, channelCount, encoderInfo?.maxBitRate ?: Int.MAX_VALUE
-        )
-        if (encodingBitRate != bitrate) {
-            Timber.w("Bitrate $bitrate is out of range for this configuration, using $encodingBitRate")
+        if (!CaptureConfiguration.supportsAacBitrate(bitrate, sampleRate, channelCount, encoderInfo?.maxBitRate ?: Int.MAX_VALUE)) {
+            val maximum = clampAacBitRate(Int.MAX_VALUE, sampleRate, channelCount, encoderInfo?.maxBitRate ?: Int.MAX_VALUE)
+            diagnostics.session("Selected AAC bitrate $bitrate bps is unsupported for $sampleRate Hz / $channelCount channel(s); maximum $maximum bps. Select a supported bitrate; no automatic reduction was applied.")
+            releaseEverything()
+            return StartResult.Rejected(RecorderInitException())
         }
         val encoder = try {
-            createEncoder(encoderInfo?.name, sampleRate, channelCount, encodingBitRate, readChunkSize)
+            createEncoder(encoderInfo?.name, sampleRate, channelCount, bitrate, readChunkSize)
         } catch (e: IOException) {
             return releaseAndFail("codec-create", e)
         } catch (e: IllegalArgumentException) {
