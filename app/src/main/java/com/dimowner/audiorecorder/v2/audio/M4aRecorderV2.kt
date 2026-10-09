@@ -127,13 +127,14 @@ class M4aRecorderV2 @Inject constructor(
             emitEvent(RecorderEvent.OnError(RecorderInitException()))
             return false
         }
-        if (params.audioInput !is AudioInput.Mic) {
-            diagnostics.session("Direct M4A system-playback capture failed. MediaRecorder fallback is unsupported and was not attempted.")
-            Timber.e("No MediaRecorder fallback for ${params.audioInput}; reporting the failure")
+        val incompatibility = CaptureConfiguration.mediaRecorderProblem(params.audioInput)
+        if (incompatibility != null) {
+            diagnostics.session("M4A fallback refused: $incompatibility")
+            Timber.e("No compatible MediaRecorder fallback: %s", incompatibility)
             emitEvent(RecorderEvent.OnError(RecorderInitException()))
             return false
         }
-        diagnostics.session("M4A fallback to MediaRecorder. Android effect controls and software gain NOT APPLIED.\n" +
+        diagnostics.session("M4A fallback to MediaRecorder: selected system-managed preprocessing and gain OFF preserved.\n" +
             CaptureProcessingSession.describeInput(params.audioInput) +
             "\nRequested: ${params.sampleRate} Hz, ${params.channelCount} channel(s). Audio session unavailable.")
         active = mediaRecorder
