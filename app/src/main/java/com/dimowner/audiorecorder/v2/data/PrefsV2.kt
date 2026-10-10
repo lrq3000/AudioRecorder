@@ -95,6 +95,12 @@ interface PrefsV2 {
     var settingChannelCount: ChannelCount
     var settingAudioSource: AudioSource
 
+    /** Microphone source for Bluetooth only; never selects system-playback capture. */
+    var bluetoothAudioSource: AudioSource
+
+    /** Scope of audio mode, Android preprocessing and software gain (not source or route). */
+    var applyOnlyToBluetoothMic: Boolean
+
     /** Experimental capture settings; defaults preserve system routing and input processing. */
     var bluetoothCaptureRoute: BluetoothCaptureRoute
     var bluetoothAudioMode: BluetoothAudioMode

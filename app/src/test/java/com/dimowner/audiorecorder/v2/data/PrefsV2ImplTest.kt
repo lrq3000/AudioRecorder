@@ -199,7 +199,7 @@ class PrefsV2ImplTest {
 
     private fun assertExperimentDefaults(actual: PrefsV2) {
         assertEquals(BluetoothCaptureRoute.STANDARD_SCO, actual.bluetoothCaptureRoute)
-        assertEquals(BluetoothAudioMode.IN_COMMUNICATION, actual.bluetoothAudioMode)
+        assertEquals(BluetoothAudioMode.NORMAL, actual.bluetoothAudioMode)
         assertEquals(InputPreprocessingPolicy.SYSTEM_DEFAULT, actual.inputPreprocessingPolicy)
         assertEquals(PcmGainMode.OFF, actual.pcmGainMode)
     }

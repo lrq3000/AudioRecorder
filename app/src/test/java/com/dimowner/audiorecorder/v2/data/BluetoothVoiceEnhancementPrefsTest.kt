@@ -36,6 +36,15 @@ class BluetoothVoiceEnhancementPrefsTest {
 
     @Test fun `new installs default to disabled`() {
         assertEquals(BluetoothVoiceEnhancement.DISABLED, prefs.bluetoothVoiceEnhancement)
+        assertEquals(BluetoothAudioMode.NORMAL, prefs.bluetoothAudioMode)
+    }
+
+    @Test fun `presets preserve the external system audio selection`() {
+        prefs.settingAudioSource = AudioSource.SYSTEM_AUDIO
+        prefs.bluetoothVoiceEnhancement = BluetoothVoiceEnhancement.HFP_PRESET
+        assertEquals(AudioSource.SYSTEM_AUDIO, prefs.settingAudioSource)
+        prefs.bluetoothVoiceEnhancement = BluetoothVoiceEnhancement.DISABLED
+        assertEquals(AudioSource.SYSTEM_AUDIO, prefs.settingAudioSource)
     }
 
     @Test fun `HFP preset applies exactly the five user-tested choices`() {
@@ -53,7 +62,7 @@ class BluetoothVoiceEnhancementPrefsTest {
         prefs.bluetoothVoiceEnhancement = BluetoothVoiceEnhancement.DISABLED
         assertEquals(AudioSource.DEFAULT, prefs.settingAudioSource)
         assertEquals(BluetoothCaptureRoute.STANDARD_SCO, prefs.bluetoothCaptureRoute)
-        assertEquals(BluetoothAudioMode.IN_COMMUNICATION, prefs.bluetoothAudioMode)
+        assertEquals(BluetoothAudioMode.NORMAL, prefs.bluetoothAudioMode)
         assertEquals(InputPreprocessingPolicy.SYSTEM_DEFAULT, prefs.inputPreprocessingPolicy)
         assertEquals(PcmGainMode.OFF, prefs.pcmGainMode)
         assertEquals(RecordingFormat.Wav, prefs.settingRecordingFormat)
@@ -82,15 +91,69 @@ class BluetoothVoiceEnhancementPrefsTest {
     }
 
     @Test fun `upgrading a different combination preserves it as custom`() {
-        stored.edit().putInt("pref_key_setting_audio_source", AudioSource.MIC.value)
+        stored.edit().clear().putInt("pref_key_setting_audio_source", AudioSource.MIC.value)
             .putString("pref_key_pcm_gain_mode", "DB_PLUS_12").commit()
+        prefs = PrefsV2Impl(context)
         assertEquals(BluetoothVoiceEnhancement.CUSTOM, prefs.bluetoothVoiceEnhancement)
         assertEquals(AudioSource.MIC, prefs.settingAudioSource)
         assertEquals(PcmGainMode.DB_PLUS_12, prefs.pcmGainMode)
+        assertEquals(BluetoothAudioMode.IN_COMMUNICATION, prefs.bluetoothAudioMode)
     }
 
-    @Test fun `individual source edits leave the HFP preset as custom`() {
-        assertEditBecomesCustom { settingAudioSource = AudioSource.MIC }
+    @Test fun `external source edits preserve the HFP preset`() {
+        prefs.bluetoothVoiceEnhancement = BluetoothVoiceEnhancement.HFP_PRESET
+        prefs.settingAudioSource = AudioSource.MIC
+        assertEquals(BluetoothVoiceEnhancement.HFP_PRESET, prefs.bluetoothVoiceEnhancement)
+    }
+
+    @Test fun `Bluetooth source edits mark the profile custom`() {
+        assertEditBecomesCustom { bluetoothAudioSource = AudioSource.MIC }
+    }
+
+    @Test fun `scope defaults on and persists independently of every preset`() {
+        assertTrue(prefs.applyOnlyToBluetoothMic)
+        prefs.applyOnlyToBluetoothMic = false
+        BluetoothVoiceEnhancement.entries.forEach {
+            prefs.bluetoothVoiceEnhancement = it
+            assertFalse(PrefsV2Impl(context).applyOnlyToBluetoothMic)
+            assertEquals(it, prefs.bluetoothVoiceEnhancement)
+        }
+    }
+
+    @Test fun `legacy source is copied once and external edits remain independent`() {
+        stored.edit().clear().putInt("pref_key_setting_audio_source", AudioSource.UNPROCESSED.value).commit()
+        prefs = PrefsV2Impl(context)
+        assertEquals(AudioSource.UNPROCESSED, prefs.bluetoothAudioSource)
+        prefs.settingAudioSource = AudioSource.MIC
+        assertEquals(AudioSource.UNPROCESSED, PrefsV2Impl(context).bluetoothAudioSource)
+    }
+
+    @Test fun `migration never copies system playback into Bluetooth source`() {
+        stored.edit().clear().putInt("pref_key_setting_audio_source", AudioSource.SYSTEM_AUDIO.value).commit()
+        prefs = PrefsV2Impl(context)
+        assertEquals(AudioSource.DEFAULT, prefs.bluetoothAudioSource)
+        assertEquals(AudioSource.SYSTEM_AUDIO, prefs.settingAudioSource)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `Bluetooth source rejects system audio`() {
+        prefs.bluetoothAudioSource = AudioSource.SYSTEM_AUDIO
+    }
+
+    @Test fun `only legacy disabled defaults migrate mode to normal`() {
+        for (label in listOf(null, "DISABLED", "CUSTOM")) {
+            stored.edit().clear().putString(MODE_KEY, label)
+                .putString("pref_key_bluetooth_audio_mode", "IN_COMMUNICATION").commit()
+            prefs = PrefsV2Impl(context)
+            assertEquals(if (label == "CUSTOM") BluetoothAudioMode.IN_COMMUNICATION else BluetoothAudioMode.NORMAL,
+                prefs.bluetoothAudioMode)
+        }
+    }
+
+    @Test fun `an explicit custom communication mode survives subsequent launches`() {
+        prefs.bluetoothAudioMode = BluetoothAudioMode.IN_COMMUNICATION
+        assertEquals(BluetoothAudioMode.IN_COMMUNICATION, PrefsV2Impl(context).bluetoothAudioMode)
+        assertEquals(BluetoothVoiceEnhancement.CUSTOM, prefs.bluetoothVoiceEnhancement)
     }
 
     @Test fun `individual route edits leave the HFP preset as custom`() {
@@ -111,7 +174,7 @@ class BluetoothVoiceEnhancementPrefsTest {
 
     @Test fun `writing the same values does not silently leave the selected preset`() {
         prefs.bluetoothVoiceEnhancement = BluetoothVoiceEnhancement.HFP_PRESET
-        prefs.settingAudioSource = AudioSource.VOICE_RECOGNITION
+        prefs.bluetoothAudioSource = AudioSource.VOICE_RECOGNITION
         prefs.bluetoothCaptureRoute = BluetoothCaptureRoute.HFP_VOICE_RECOGNITION
         prefs.bluetoothAudioMode = BluetoothAudioMode.NORMAL
         prefs.inputPreprocessingPolicy = InputPreprocessingPolicy.AGC_ONLY
@@ -141,8 +204,13 @@ class BluetoothVoiceEnhancementPrefsTest {
 
     @Test fun `recording reset clears the preset and custom selection`() {
         prefs.bluetoothVoiceEnhancement = BluetoothVoiceEnhancement.CUSTOM
+        prefs.applyOnlyToBluetoothMic = false
+        prefs.bluetoothAudioSource = AudioSource.MIC
         prefs.resetRecordingSettings()
         assertEquals(BluetoothVoiceEnhancement.DISABLED, prefs.bluetoothVoiceEnhancement)
+        assertTrue(prefs.applyOnlyToBluetoothMic)
+        assertEquals(AudioSource.DEFAULT, prefs.bluetoothAudioSource)
+        assertEquals(BluetoothAudioMode.NORMAL, prefs.bluetoothAudioMode)
         prefs.bluetoothVoiceEnhancement = BluetoothVoiceEnhancement.HFP_PRESET
         prefs.fullPreferenceReset()
         assertEquals(BluetoothVoiceEnhancement.DISABLED, prefs.bluetoothVoiceEnhancement)
@@ -166,15 +234,16 @@ class BluetoothVoiceEnhancementPrefsTest {
     }
 
     private fun assertHfpConfiguration() = assertEquals(hfpValues, configuration())
-    private fun configuration(): List<Any> = listOf(prefs.settingAudioSource, prefs.bluetoothCaptureRoute,
+    private fun configuration(): List<Any> = listOf(prefs.bluetoothAudioSource, prefs.bluetoothCaptureRoute,
         prefs.bluetoothAudioMode, prefs.inputPreprocessingPolicy, prefs.pcmGainMode)
 
     private fun writeLegacyHfpConfiguration() {
-        stored.edit().putInt("pref_key_setting_audio_source", AudioSource.VOICE_RECOGNITION.value)
+        stored.edit().clear().putInt("pref_key_setting_audio_source", AudioSource.VOICE_RECOGNITION.value)
             .putString("pref_key_bluetooth_capture_route", "HFP_VOICE_RECOGNITION")
             .putString("pref_key_bluetooth_audio_mode", "NORMAL")
             .putString("pref_key_input_preprocessing_policy", "AGC_ONLY")
             .putString("pref_key_pcm_gain_mode", "AUTO_LEVEL").commit()
+        prefs = PrefsV2Impl(context)
     }
 
     companion object {

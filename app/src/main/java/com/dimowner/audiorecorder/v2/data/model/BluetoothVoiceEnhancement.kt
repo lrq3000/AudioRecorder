@@ -34,7 +34,7 @@ internal data class BluetoothVoiceConfiguration(
 ) {
     companion object {
         val STANDARD = BluetoothVoiceConfiguration(AudioSource.DEFAULT, BluetoothCaptureRoute.STANDARD_SCO,
-            BluetoothAudioMode.IN_COMMUNICATION, InputPreprocessingPolicy.SYSTEM_DEFAULT, PcmGainMode.OFF)
+            BluetoothAudioMode.NORMAL, InputPreprocessingPolicy.SYSTEM_DEFAULT, PcmGainMode.OFF)
         val HFP = BluetoothVoiceConfiguration(AudioSource.VOICE_RECOGNITION, BluetoothCaptureRoute.HFP_VOICE_RECOGNITION,
             BluetoothAudioMode.NORMAL, InputPreprocessingPolicy.AGC_ONLY, PcmGainMode.AUTO_LEVEL)
     }
