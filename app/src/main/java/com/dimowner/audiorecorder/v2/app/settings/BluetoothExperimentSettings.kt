@@ -6,6 +6,7 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,6 +19,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Switch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -36,6 +38,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.dimowner.audiorecorder.R
+import com.dimowner.audiorecorder.v2.data.model.AudioSource
 import com.dimowner.audiorecorder.v2.data.model.BluetoothCaptureRoute
 import com.dimowner.audiorecorder.v2.data.model.BluetoothAudioMode
 import com.dimowner.audiorecorder.v2.data.model.BluetoothVoiceEnhancement
@@ -75,11 +78,26 @@ internal fun BluetoothExperimentSettings(state: SettingsState, onAction: (Settin
             BluetoothVoiceEnhancement.HFP_PRESET -> R.string.bluetooth_voice_enhancement_hfp_summary
             BluetoothVoiceEnhancement.CUSTOM -> R.string.bluetooth_voice_enhancement_custom_summary
         }), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(bottom = 8.dp))
+        Row(Modifier.fillMaxWidth().toggleable(value = state.applyOnlyToBluetoothMic,
+            enabled = state.isRecordingSettingEditable, role = Role.Switch,
+            onValueChange = { onAction(SettingsScreenAction.SetExperiment.Scope(it)) })
+            .padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.bluetooth_experiment_scope), style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.weight(1f))
+            Switch(checked = state.applyOnlyToBluetoothMic, onCheckedChange = null,
+                enabled = state.isRecordingSettingEditable)
+        }
+        Text(stringResource(if (state.applyOnlyToBluetoothMic) R.string.bluetooth_experiment_scope_on
+            else R.string.bluetooth_experiment_scope_off), style = MaterialTheme.typography.bodySmall)
         if (state.bluetoothVoiceEnhancement == BluetoothVoiceEnhancement.CUSTOM) {
             // Custom exposes its controls directly. Only actual selectors carry dropdown arrows.
             Text(stringResource(R.string.bluetooth_experiment_title), style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(top = 16.dp, bottom = 8.dp).semantics { heading() })
             Text(stringResource(R.string.bluetooth_experiment_help), style = MaterialTheme.typography.bodySmall)
+            ExperimentSelector(stringResource(R.string.bluetooth_experiment_source), state.bluetoothAudioSource,
+                AudioSource.entries.filterNot { it.isSystemAudio }, state.isRecordingSettingEditable) {
+                onAction(SettingsScreenAction.SetExperiment.Source(it))
+            }
             ExperimentSelector(stringResource(R.string.bluetooth_experiment_route), state.bluetoothCaptureRoute,
                 BluetoothCaptureRoute.entries, state.isRecordingSettingEditable) { value ->
                 onAction(SettingsScreenAction.SetExperiment.Route(value))

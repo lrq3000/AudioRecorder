@@ -45,6 +45,7 @@ internal class CaptureProcessingSession(
 
     fun prepare(): Boolean {
         return try {
+            verifyAudioMode()
             if (recorder.sampleRate != requestedRate || recorder.channelCount != requestedChannels) {
                 throw CaptureInputException("Android created a different PCM rate/channel count than selected.")
             }
@@ -74,11 +75,15 @@ internal class CaptureProcessingSession(
     }
 
     /** Null marks a read that starts before the selected input is verified. */
-    fun beginRead(): Int? = if (routing == null) 0 else routing.beginRead()
+    fun beginRead(): Int? {
+        verifyAudioMode()
+        return if (routing == null) 0 else routing.beginRead()
+    }
 
     /** False means this startup/transition buffer must be discarded, not written or encoded. */
     fun acceptPcm(buffer: ByteArray, bytesRead: Int, readToken: Int?): Boolean {
         check(prepared) { "Capture session was not prepared" }
+        verifyAudioMode()
         if (routing != null) {
             if (!routing.finishRead(readToken)) {
                 bytesToDrain = inputBufferBytes
@@ -103,10 +108,24 @@ internal class CaptureProcessingSession(
     }
     override fun close() { routing?.close(); effects?.close() }
 
+    private fun verifyAudioMode() {
+        // Bluetooth's routing guard already verifies mode at both read boundaries.
+        if (routing != null) return
+        mic?.let { CaptureConfiguration.modeProblem(it, manager?.mode) }?.let { reason ->
+            diagnostics.session(summary + "\n" + reason)
+            throw CaptureInputException(reason)
+        }
+    }
+
     companion object {
         fun describeInput(input: AudioInput): String = when (input) {
             is AudioInput.Mic -> "Source: ${AudioSource.fromValue(input.audioSource)}\n" +
-                "Requested preprocessing: ${input.preprocessing}; software gain: ${input.gain}" +
+                (input.requestedSettings?.let { settings ->
+                    "Scope: ${if (settings.onlyBluetooth) "Bluetooth microphone only" else "all microphones"}\n" +
+                    "Selected Android mode: ${settings.mode}; preprocessing: ${settings.preprocessing}; software gain: ${settings.gain}\n" +
+                    if (input.audioMode == null) "Scoped overrides skipped for non-Bluetooth microphone.\n" else "Effective Android mode request: ${input.audioMode}\n"
+                } ?: "") +
+                "Effective preprocessing request: ${input.preprocessing}; software gain: ${input.gain}" +
                 (input.bluetoothInput?.let { "\nRequested Bluetooth input: ${it.device.productName} (id=${it.device.id}); mode=${it.mode}" } ?: "") +
                 if (input.audioSource == AudioSource.UNPROCESSED.value) "\nUNPROCESSED requires advertised platform support; vendor DSP cannot be independently verified." else ""
             is AudioInput.SystemPlayback -> "Source: SYSTEM_AUDIO"

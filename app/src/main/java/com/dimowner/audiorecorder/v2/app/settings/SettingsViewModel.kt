@@ -100,6 +100,11 @@ internal class SettingsViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
+            audioRecorderDelegate.captureSessionActive.collect {
+                _state.value = _state.value.copy(isRecordingSettingEditable = !recordingSettingsLocked())
+            }
+        }
+        viewModelScope.launch {
             captureDiagnostics.state.collect { evidence ->
                 _state.value = _state.value.copy(captureDiagnostics = evidence.route + "\n\nCurrent / last recording:\n" + evidence.session)
             }
@@ -114,7 +119,7 @@ internal class SettingsViewModel @Inject constructor(
             isKeepScreenOn = prefs.isKeepScreenOn,
             isFloatingRecorderOverlayEnabled = prefs.isFloatingRecorderOverlayEnabled,
             isShowRenameDialog = prefs.askToRenameAfterRecordingStopped,
-            isRecordingSettingEditable = true,
+            isRecordingSettingEditable = !recordingSettingsLocked(),
             selectedNameFormat = prefs.settingNamingFormat.toNameFormatItem(prefs.customNameFormat),
             nameFormats = makeNameFormats(prefs.customNameFormat),
             recordingSettings = RecordingFormat.entries.toList().mapIndexed { index, format ->
@@ -169,6 +174,8 @@ internal class SettingsViewModel @Inject constructor(
             selectedAudioSource = prefs.settingAudioSource,
             audioSourceOptions = supportedAudioSources(),
             bluetoothCaptureRoute = prefs.bluetoothCaptureRoute,
+            bluetoothAudioSource = prefs.bluetoothAudioSource,
+            applyOnlyToBluetoothMic = prefs.applyOnlyToBluetoothMic,
             bluetoothAudioMode = prefs.bluetoothAudioMode,
             inputPreprocessingPolicy = prefs.inputPreprocessingPolicy,
             pcmGainMode = prefs.pcmGainMode,
@@ -217,6 +224,8 @@ internal class SettingsViewModel @Inject constructor(
     private fun SettingsState.withBluetoothSettings(): SettingsState = copy(
         selectedAudioSource = prefs.settingAudioSource,
         bluetoothCaptureRoute = prefs.bluetoothCaptureRoute,
+        bluetoothAudioSource = prefs.bluetoothAudioSource,
+        applyOnlyToBluetoothMic = prefs.applyOnlyToBluetoothMic,
         bluetoothAudioMode = prefs.bluetoothAudioMode,
         inputPreprocessingPolicy = prefs.inputPreprocessingPolicy,
         pcmGainMode = prefs.pcmGainMode,
@@ -314,7 +323,9 @@ internal class SettingsViewModel @Inject constructor(
         _state.value = _state.value.copy(
             selectedAudioSource = DefaultValues.DefaultAudioSource,
             bluetoothCaptureRoute = BluetoothCaptureRoute.STANDARD_SCO,
-            bluetoothAudioMode = BluetoothAudioMode.IN_COMMUNICATION,
+            bluetoothAudioSource = AudioSource.DEFAULT,
+            applyOnlyToBluetoothMic = true,
+            bluetoothAudioMode = BluetoothAudioMode.NORMAL,
             inputPreprocessingPolicy = InputPreprocessingPolicy.SYSTEM_DEFAULT,
             pcmGainMode = PcmGainMode.OFF,
             bluetoothVoiceEnhancement = BluetoothVoiceEnhancement.DISABLED,
@@ -344,6 +355,7 @@ internal class SettingsViewModel @Inject constructor(
     }
 
     fun selectRecordingFormat(value: RecordingFormat) {
+        if (recordingSettingsLocked()) return
         prefs.settingRecordingFormat = value
         // The mirror of validateFormatForAudioSource(): 3GP has no AudioRecord-backed recorder,
         // so picking it gives up system audio capture.
@@ -411,6 +423,7 @@ internal class SettingsViewModel @Inject constructor(
     }
 
     fun selectSampleRate(value: SampleRate) {
+        if (recordingSettingsLocked()) return
         prefs.settingSampleRate = value
         _state.value = _state.value.copy(
             recordingSettings = _state.value.recordingSettings.map { formatSetting ->
@@ -428,6 +441,7 @@ internal class SettingsViewModel @Inject constructor(
     }
 
     fun selectBitrate(value: BitRate) {
+        if (recordingSettingsLocked()) return
         prefs.settingBitrate = value
         _state.value = _state.value.copy(
             recordingSettings = _state.value.recordingSettings.map { formatSetting ->
@@ -445,6 +459,7 @@ internal class SettingsViewModel @Inject constructor(
     }
 
     fun selectChannelCount(value: ChannelCount) {
+        if (recordingSettingsLocked()) return
         prefs.settingChannelCount = value
         _state.value = _state.value.copy(
             recordingSettings = _state.value.recordingSettings.map { formatSetting ->
@@ -462,6 +477,7 @@ internal class SettingsViewModel @Inject constructor(
     }
 
     fun setMaxRecordingDuration(durationMinutes: Int) {
+        if (recordingSettingsLocked()) return
         if (durationMinutes > 0) {
             prefs.maxRecordingDurationMills = durationMinutes * 60 * 1000
             _state.value = _state.value.copy(maxRecordingDurationMinutes = durationMinutes)
@@ -480,6 +496,15 @@ internal class SettingsViewModel @Inject constructor(
             is SettingsScreenAction.SetExperiment.Enhancement -> {
                 prefs.bluetoothVoiceEnhancement = action.value
                 _state.value = _state.value.withBluetoothSettings()
+            }
+            is SettingsScreenAction.SetExperiment.Source -> {
+                if (action.value.isSystemAudio) return
+                prefs.bluetoothAudioSource = action.value
+                _state.value = _state.value.withBluetoothSettings()
+            }
+            is SettingsScreenAction.SetExperiment.Scope -> {
+                prefs.applyOnlyToBluetoothMic = action.onlyBluetooth
+                _state.value = _state.value.copy(applyOnlyToBluetoothMic = action.onlyBluetooth)
             }
             is SettingsScreenAction.SetExperiment.Route -> {
                 prefs.bluetoothCaptureRoute = action.value
@@ -526,7 +551,8 @@ internal class SettingsViewModel @Inject constructor(
     }
 
     /** The floating recorder can start after Settings opens, so the cached UI flag is not enough. */
-    private fun recordingSettingsLocked(): Boolean = audioRecorderDelegate.provideAudioRecorder().isRecording
+    private fun recordingSettingsLocked(): Boolean = audioRecorderDelegate.isCaptureSessionActive ||
+        audioRecorderDelegate.provideAudioRecorder().isRecording
 
     fun unlockLegacyAppSwitch() {
         if (!prefs.isLegacyAppUser) {
@@ -576,6 +602,8 @@ internal class SettingsViewModel @Inject constructor(
 internal sealed class SettingsScreenAction {
     sealed class SetExperiment : SettingsScreenAction() {
         data class Enhancement(val value: BluetoothVoiceEnhancement) : SetExperiment()
+        data class Source(val value: AudioSource) : SetExperiment()
+        data class Scope(val onlyBluetooth: Boolean) : SetExperiment()
         data class Route(val value: BluetoothCaptureRoute) : SetExperiment()
         data class Mode(val value: BluetoothAudioMode) : SetExperiment()
         data class Preprocessing(val value: InputPreprocessingPolicy) : SetExperiment()

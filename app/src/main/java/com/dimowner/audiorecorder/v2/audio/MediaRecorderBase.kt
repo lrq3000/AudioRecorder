@@ -70,6 +70,7 @@ abstract class MediaRecorderBase(
     // thread by recordingTimeUpdateRunnable, so all of them have to be volatile.
     @Volatile private var mediaRecorder: MediaRecorder? = null
     @Volatile private var inputRouting: InputRoutingGuard? = null
+    @Volatile private var verifyMicrophoneMode: (() -> Unit)? = null
     private var recordFile: File? = null
 
     // updateTime is written by the sampling thread and read by the timerProgress thread;
@@ -187,6 +188,16 @@ abstract class MediaRecorderBase(
             this.mediaRecorder = recorder
 
             try {
+                if (micInput.audioMode != null && micInput.bluetoothInput == null) {
+                    val manager = applicationContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                    verifyMicrophoneMode = {
+                        CaptureConfiguration.modeProblem(micInput, manager.mode)?.let { reason ->
+                            diagnostics.session(CaptureProcessingSession.describeInput(micInput) + "\n" + reason)
+                            throw CaptureInputException(reason)
+                        }
+                    }
+                    verifyMicrophoneMode?.invoke()
+                }
                 recorder.apply {
                     setAudioSource(micInput.audioSource)
                     configureRecorder(this, channelCount, sampleRate, bitrate)
@@ -210,6 +221,7 @@ abstract class MediaRecorderBase(
                 }
                 recorder.prepare()
                 recorder.start()
+                verifyMicrophoneMode?.invoke()
                 inputRouting?.started()
                 inputRouting?.accept(allowWait = false)
                 _isPaused = false
@@ -317,6 +329,7 @@ abstract class MediaRecorderBase(
         // action racing the stop button, or a max-duration tick landing on top of either) finds
         // no recorder and cannot start a second teardown of the same one.
         mediaRecorder = null
+        verifyMicrophoneMode = null
         inputRouting?.close()
         inputRouting = null
 
@@ -453,6 +466,7 @@ abstract class MediaRecorderBase(
                 // exception there takes down the process. Give up on the loop instead - the
                 // next start/resume reschedules it.
                 val amplitude = try {
+                    verifyMicrophoneMode?.invoke()
                     inputRouting?.accept(allowWait = false)
                     currentRecorder.maxAmplitude
                 } catch (e: CaptureInputException) {
@@ -486,6 +500,7 @@ abstract class MediaRecorderBase(
      * be mid-read when we release, which is why the amplitude read is guarded as well.
      */
     private fun releaseRecorder() {
+        verifyMicrophoneMode = null
         inputRouting?.close()
         inputRouting = null
         val recorder = mediaRecorder

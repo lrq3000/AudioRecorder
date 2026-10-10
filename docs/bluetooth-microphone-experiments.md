@@ -7,26 +7,48 @@ changing a dimension.
 
 | Selection | Behavior |
 |---|---|
-| Disabled | Restores DEFAULT source, STANDARD_SCO, IN_COMMUNICATION, SYSTEM_DEFAULT preprocessing and gain OFF. |
-| HFP Clear Voice preset | Applies the user-tested VOICE_RECOGNITION source, HFP_VOICE_RECOGNITION route, NORMAL mode, AGC_ONLY preprocessing and AUTO_LEVEL gain together. |
+| Disabled | Restores DEFAULT Bluetooth source, STANDARD_SCO, NORMAL, SYSTEM_DEFAULT preprocessing and gain OFF. |
+| HFP Clear Voice preset | Applies the user-tested VOICE_RECOGNITION Bluetooth source, HFP_VOICE_RECOGNITION route, NORMAL mode, AGC_ONLY preprocessing and AUTO_LEVEL gain together. |
 | Custom | Keeps the current values and directly shows all selectors under **Bluetooth microphone routing and processing**. |
 
 The individual experimental controls are visible only in Custom. Every selector has a
 right-hand dropdown arrow. The section heading is plain text, and the setup guidance appears
 below it only in Custom mode. There is no additional expand/collapse action.
-The **Audio source** selector remains in recording settings. Changing that source or an
-individual experimental value switches the enhancement selection to Custom, so the preset
-label continues to describe the actual configuration. Diagnostics remain available in all
-three modes.
+The existing **Audio source** selector remains in recording settings for phone/other microphone
+capture or System Audio. **Bluetooth audio source** is a separate Custom selector and never
+offers System Audio. Editing it or another profile value marks the enhancement Custom; editing
+the external source does not. Presets never overwrite the external source. System Audio takes
+precedence even when the Bluetooth switch is enabled. Diagnostics remain available in all modes.
 
-Upgrading preserves existing settings: the exact HFP combination is recognized as HFP Clear Voice preset,
-the standard combination as Disabled, and any other combination as Custom. Selecting Custom
+**Apply only to Bluetooth mic** is a binary switch, ON by default, shown below the enhancement
+selector in every mode. It persists independently of presets:
+
+| Setting | Switch ON | Switch OFF |
+|---|---|---|
+| Bluetooth source and route | Bluetooth microphone only | Bluetooth microphone only |
+| Android audio mode, preprocessing, software gain | Bluetooth microphone only | All microphones |
+| External Audio source | Other microphones or System Audio | Other microphones or System Audio |
+| System-playback capture | No microphone mode/effects/gain overrides | No microphone mode/effects/gain overrides |
+
+On non-Bluetooth recordings with the switch ON, the app leaves audio mode alone, requests
+system-default preprocessing and bypasses software gain. With the switch OFF, it owns the selected
+Android audio mode for the recording and restores the previous mode on stop/failure, without
+requesting Bluetooth routing. Settings are snapshotted before startup; editing is locked through
+route preparation, native startup, recording and saving. Diagnostics show selected and effective
+processing separately, including overrides skipped by scope.
+
+Upgrading snapshots the old microphone source once into the Bluetooth source while preserving the
+external source; System Audio is never copied. The exact HFP combination is recognized as HFP Clear
+Voice preset, the standard combination as Disabled, and any other combination as Custom. Selecting Custom
 keeps the currently active combination; it does not restore an earlier custom snapshot.
-Preset changes do not alter the recording format, sample rate, or Bluetooth switch preference.
+Preset changes do not alter the external source, scope switch, recording format, sample rate, or Bluetooth switch preference.
 
-Defaults preserve the previous capture choices: standard routing, communication mode,
-system-default effects, gain off, and your existing audio source. “Reset recording settings”
-resets the experiments and selects Disabled. All choices coexist in the same debug APK.
+Fresh installs, Disabled and “Reset recording settings” use NORMAL mode, standard routing,
+system-default effects and gain off. Reset also restores both sources to DEFAULT and scope ON.
+Legacy Disabled/default combinations migrate to NORMAL; custom combinations retain their stored
+mode (including an implicit old IN_COMMUNICATION default). Explicit IN_COMMUNICATION remains
+available. The change follows user reports that communication mode selected the phone mic across
+multiple headsets while NORMAL selected Bluetooth; it is not an Android-version guarantee.
 
 ## Compare continuity first
 
@@ -91,9 +113,10 @@ advertise support; even an advertised capability is not proof that all vendor DS
 SYSTEM_DEFAULT leaves the effect enabled states untouched.
 
 3GP and M4A's MediaRecorder fallback do not expose PCM or these input effect controls.
-They are rejected when a non-default preprocessing policy or enabled software gain is selected,
+They are rejected when a non-default preprocessing policy or enabled software gain is effective for this recording,
 instead of dropping that choice. A default-processing/gain-off M4A fallback remains possible
-and is identified in diagnostics. System-audio setup failure never falls back to a microphone;
+and is identified in diagnostics. Dormant Bluetooth-only processing never blocks phone-mic 3GP
+or its M4A fallback; compatibility checks resolve scope first. System-audio setup failure never falls back to a microphone;
 unsupported source/format combinations are rejected without rewriting preferences. An AAC
 bitrate exceeding the format/encoder limit is also rejected rather than silently lowered.
 System-playback capture bypasses microphone-only effects and gain. A requested file sample
@@ -154,3 +177,23 @@ rejection, recording/stop/recovery, effect inspection, and rejected system-audio
 the service remains bound. The bound-service foreground-start regression also passes on an
 Android 14 emulator. Physical Bluetooth headset behavior still requires device testing;
 the tests validate the requests and observable input/mode checks, not vendor DSP internals.
+
+### Independent source and processing scope follow-up (2026-10-10)
+
+The update passes **618 unit tests** (zero failures/errors/skips in the XML reports), and both
+debug APKs build. **Nine audio instrumented tests pass on the isolated Android 10 emulator**,
+including native phone PCM capture under both scope settings and audio-mode restoration.
+
+Emulator UI checks confirm the default-ON binary switch, its persistence after process restart,
+independent external/Bluetooth sources, the five microphone-only Bluetooth source options,
+NORMAL mode, visible Custom controls/chevrons, and diagnostics accessibility while controls
+are recording-locked. With AGC_ONLY/AUTO_LEVEL selected, phone 3GP records successfully when
+scope is Bluetooth-only and is explicitly rejected with all-microphone scope. Phone WAV with
+all-microphone scope saves successfully; diagnostics report NORMAL applied, the built-in input,
+the effective gain/policy and saved-file metadata. The emulator reports Java effects unavailable;
+that result is exposed in diagnostics rather than treated as successful effect activation.
+
+Lifecycle regressions cover a preview enabled between snapshot and preparation, system playback
+blocking microphone previews, an already-open Settings screen following start/stop, and format
+controls respecting the startup lock. The emulator crash buffer was empty after these checks.
+Physical Bluetooth routing/ENC quality for this update still requires the requester's hardware.

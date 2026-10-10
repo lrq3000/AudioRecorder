@@ -59,7 +59,9 @@ data class SettingsState(
     /** True when the user previously used V1 and intentionally switched to V2. */
     val isLegacyAppUser: Boolean = false,
     val bluetoothCaptureRoute: BluetoothCaptureRoute = BluetoothCaptureRoute.STANDARD_SCO,
-    val bluetoothAudioMode: BluetoothAudioMode = BluetoothAudioMode.IN_COMMUNICATION,
+    val bluetoothAudioSource: AudioSource = AudioSource.DEFAULT,
+    val applyOnlyToBluetoothMic: Boolean = true,
+    val bluetoothAudioMode: BluetoothAudioMode = BluetoothAudioMode.NORMAL,
     val inputPreprocessingPolicy: InputPreprocessingPolicy = InputPreprocessingPolicy.SYSTEM_DEFAULT,
     val pcmGainMode: PcmGainMode = PcmGainMode.OFF,
     val bluetoothVoiceEnhancement: BluetoothVoiceEnhancement = BluetoothVoiceEnhancement.DISABLED,

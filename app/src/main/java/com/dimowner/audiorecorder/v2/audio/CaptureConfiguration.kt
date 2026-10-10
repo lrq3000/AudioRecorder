@@ -8,13 +8,26 @@ import com.dimowner.audiorecorder.v2.data.model.RecordingFormat
 
 /** Preflight decisions are shared by service entry points and backend fallback. */
 internal object CaptureConfiguration {
-    fun resolveInput(source: AudioSource, policy: InputPreprocessingPolicy, gain: PcmGainMode,
+    fun resolveInput(source: AudioSource, settings: MicrophoneCaptureSettings, useBluetooth: Boolean,
         systemCaptureSupported: Boolean, projection: MediaProjection?): Result<AudioInput> {
-        if (!source.isSystemAudio) return Result.success(AudioInput.Mic(source.value, policy, gain))
+        if (!source.isSystemAudio) {
+            val effectiveSource = if (useBluetooth) settings.bluetoothSource else source
+            if (effectiveSource.isSystemAudio) return Result.failure(IllegalArgumentException("System audio is not a Bluetooth microphone source."))
+            val applyProcessing = useBluetooth || !settings.onlyBluetooth
+            return Result.success(AudioInput.Mic(effectiveSource.value,
+                if (applyProcessing) settings.preprocessing else InputPreprocessingPolicy.SYSTEM_DEFAULT,
+                if (applyProcessing) settings.gain else PcmGainMode.OFF,
+                audioMode = settings.mode.takeIf { applyProcessing }, requestedSettings = settings))
+        }
         if (!systemCaptureSupported) return Result.failure(IllegalArgumentException("System audio requires Android 10 or newer; microphone fallback is not allowed."))
         if (projection == null) return Result.failure(IllegalArgumentException("System-audio consent is missing or expired. Grant capture consent again; microphone fallback is not allowed."))
         return Result.success(AudioInput.SystemPlayback(projection))
     }
+
+    fun modeProblem(input: AudioInput.Mic, actualMode: Int?): String? =
+        input.audioMode?.takeIf { it.value != actualMode }?.let {
+            "Requested Android audio mode $it (${it.value}); observed mode=${actualMode ?: "unknown"}. Capture stopped; no mode substitution."
+        }
 
     fun mediaRecorderProblem(input: AudioInput): String? = when {
         input !is AudioInput.Mic -> "MediaRecorder cannot capture system audio. Choose WAV or direct M4A."

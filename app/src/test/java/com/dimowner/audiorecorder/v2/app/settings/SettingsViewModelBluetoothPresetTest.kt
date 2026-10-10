@@ -12,10 +12,18 @@ import com.dimowner.audiorecorder.v2.data.model.BluetoothVoiceEnhancement
 import com.dimowner.audiorecorder.v2.data.model.InputPreprocessingPolicy
 import com.dimowner.audiorecorder.v2.data.model.PcmGainMode
 import com.dimowner.audiorecorder.v2.data.model.RecordingFormat
+import com.dimowner.audiorecorder.v2.data.model.SampleRate
+import com.dimowner.audiorecorder.v2.data.model.BitRate
+import com.dimowner.audiorecorder.v2.data.model.ChannelCount
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import android.os.Looper
+import org.robolectric.Shadows.shadowOf
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -29,12 +37,15 @@ class SettingsViewModelBluetoothPresetTest {
     private lateinit var context: Context
     private lateinit var prefs: PrefsV2Impl
     private val recorder = mockk<AudioRecorderDelegate>(relaxed = true)
+    private val sessionActive = MutableStateFlow(false)
 
     @Before fun setUp() {
         context = RuntimeEnvironment.getApplication()
         prefs = PrefsV2Impl(context)
         prefs.fullPreferenceReset()
         every { recorder.provideAudioRecorder().isRecording } returns false
+        every { recorder.captureSessionActive } returns sessionActive
+        every { recorder.isCaptureSessionActive } answers { sessionActive.value }
     }
 
     private fun createViewModel() = SettingsViewModel(
@@ -51,11 +62,13 @@ class SettingsViewModelBluetoothPresetTest {
     }
 
     @Test fun `selecting HFP updates the source and every experimental control together`() {
+        prefs.settingAudioSource = AudioSource.SYSTEM_AUDIO
         val vm = createViewModel()
         vm.onAction(SettingsScreenAction.SetExperiment.Enhancement(BluetoothVoiceEnhancement.HFP_PRESET))
         assertEquals(BluetoothVoiceEnhancement.HFP_PRESET, vm.state.value.bluetoothVoiceEnhancement)
         assertEquals(hfpValues, values(vm.state.value))
         assertEquals(BluetoothVoiceEnhancement.HFP_PRESET, PrefsV2Impl(context).bluetoothVoiceEnhancement)
+        assertEquals(AudioSource.SYSTEM_AUDIO, vm.state.value.selectedAudioSource)
     }
 
     @Test fun `selecting Custom keeps preset values available for editing`() {
@@ -76,11 +89,11 @@ class SettingsViewModelBluetoothPresetTest {
         assertEquals(RecordingFormat.Wav, prefs.settingRecordingFormat)
     }
 
-    @Test fun `editing the separately displayed audio source changes the preset label to Custom`() {
+    @Test fun `editing the separately displayed audio source preserves the Bluetooth profile`() {
         prefs.bluetoothVoiceEnhancement = BluetoothVoiceEnhancement.HFP_PRESET
         val vm = createViewModel()
         vm.setAudioSource(AudioSource.MIC)
-        assertEquals(BluetoothVoiceEnhancement.CUSTOM, vm.state.value.bluetoothVoiceEnhancement)
+        assertEquals(BluetoothVoiceEnhancement.HFP_PRESET, vm.state.value.bluetoothVoiceEnhancement)
         assertEquals(AudioSource.MIC, vm.state.value.selectedAudioSource)
         assertEquals(PcmGainMode.AUTO_LEVEL, vm.state.value.pcmGainMode)
     }
@@ -131,13 +144,83 @@ class SettingsViewModelBluetoothPresetTest {
         assertEquals(BluetoothVoiceEnhancement.HFP_PRESET, prefs.bluetoothVoiceEnhancement)
     }
 
-    private fun values(state: SettingsState): List<Any> = listOf(state.selectedAudioSource,
+    @Test fun `scope switch persists without changing preset or either source`() {
+        prefs.bluetoothVoiceEnhancement = BluetoothVoiceEnhancement.HFP_PRESET
+        val vm = createViewModel()
+        assertTrue(vm.state.value.applyOnlyToBluetoothMic)
+        vm.onAction(SettingsScreenAction.SetExperiment.Scope(false))
+        assertFalse(vm.state.value.applyOnlyToBluetoothMic)
+        assertFalse(PrefsV2Impl(context).applyOnlyToBluetoothMic)
+        assertEquals(BluetoothVoiceEnhancement.HFP_PRESET, vm.state.value.bluetoothVoiceEnhancement)
+        assertEquals(AudioSource.DEFAULT, vm.state.value.selectedAudioSource)
+        assertEquals(AudioSource.VOICE_RECOGNITION, vm.state.value.bluetoothAudioSource)
+        vm.onAction(SettingsScreenAction.SetExperiment.Enhancement(BluetoothVoiceEnhancement.DISABLED))
+        assertFalse(vm.state.value.applyOnlyToBluetoothMic)
+    }
+
+    @Test fun `Bluetooth source edit changes only the profile source and marks Custom`() {
+        prefs.bluetoothVoiceEnhancement = BluetoothVoiceEnhancement.HFP_PRESET
+        val vm = createViewModel()
+        vm.onAction(SettingsScreenAction.SetExperiment.Source(AudioSource.UNPROCESSED))
+        assertEquals(AudioSource.UNPROCESSED, vm.state.value.bluetoothAudioSource)
+        assertEquals(AudioSource.DEFAULT, vm.state.value.selectedAudioSource)
+        assertEquals(BluetoothVoiceEnhancement.CUSTOM, vm.state.value.bluetoothVoiceEnhancement)
+        vm.onAction(SettingsScreenAction.SetExperiment.Source(AudioSource.SYSTEM_AUDIO))
+        assertEquals(AudioSource.UNPROCESSED, prefs.bluetoothAudioSource)
+    }
+
+    @Test fun `startup locks scope source and reset before recorder amplitudes arrive`() {
+        every { recorder.isCaptureSessionActive } returns true
+        val vm = createViewModel()
+        assertFalse(vm.state.value.isRecordingSettingEditable)
+        vm.onAction(SettingsScreenAction.SetExperiment.Scope(false))
+        vm.onAction(SettingsScreenAction.SetExperiment.Source(AudioSource.UNPROCESSED))
+        vm.onAction(SettingsScreenAction.SetExperiment.Enhancement(BluetoothVoiceEnhancement.HFP_PRESET))
+        vm.setAudioSource(AudioSource.SYSTEM_AUDIO)
+        vm.resetRecordingSettings()
+        assertTrue(prefs.applyOnlyToBluetoothMic)
+        assertEquals(AudioSource.DEFAULT, prefs.bluetoothAudioSource)
+        assertEquals(AudioSource.DEFAULT, prefs.settingAudioSource)
+        assertEquals(BluetoothVoiceEnhancement.DISABLED, prefs.bluetoothVoiceEnhancement)
+    }
+
+    @Test fun `encoding controls cannot bypass the startup lock or change system audio`() {
+        prefs.settingAudioSource = AudioSource.SYSTEM_AUDIO
+        prefs.settingRecordingFormat = RecordingFormat.M4a
+        val before = listOf(prefs.settingSampleRate, prefs.settingBitrate, prefs.settingChannelCount,
+            prefs.maxRecordingDurationMills)
+        val vm = createViewModel()
+        every { recorder.isCaptureSessionActive } returns true
+        vm.selectRecordingFormat(RecordingFormat.ThreeGp)
+        vm.selectSampleRate(SampleRate.SR16000)
+        vm.selectBitrate(BitRate.BR128)
+        vm.selectChannelCount(ChannelCount.Mono)
+        vm.setMaxRecordingDuration(1)
+        assertEquals(AudioSource.SYSTEM_AUDIO, prefs.settingAudioSource)
+        assertEquals(RecordingFormat.M4a, prefs.settingRecordingFormat)
+        assertEquals(before, listOf(prefs.settingSampleRate, prefs.settingBitrate, prefs.settingChannelCount,
+            prefs.maxRecordingDurationMills))
+    }
+
+    @Test fun `an open Settings screen follows start and stop editability without reopening`() {
+        val vm = createViewModel()
+        shadowOf(Looper.getMainLooper()).idle()
+        assertTrue(vm.state.value.isRecordingSettingEditable)
+        sessionActive.value = true
+        shadowOf(Looper.getMainLooper()).idle()
+        assertFalse(vm.state.value.isRecordingSettingEditable)
+        sessionActive.value = false
+        shadowOf(Looper.getMainLooper()).idle()
+        assertTrue(vm.state.value.isRecordingSettingEditable)
+    }
+
+    private fun values(state: SettingsState): List<Any> = listOf(state.bluetoothAudioSource,
         state.bluetoothCaptureRoute, state.bluetoothAudioMode, state.inputPreprocessingPolicy, state.pcmGainMode)
 
     companion object {
         private val hfpValues = listOf(AudioSource.VOICE_RECOGNITION, BluetoothCaptureRoute.HFP_VOICE_RECOGNITION,
             BluetoothAudioMode.NORMAL, InputPreprocessingPolicy.AGC_ONLY, PcmGainMode.AUTO_LEVEL)
         private val defaultValues = listOf(AudioSource.DEFAULT, BluetoothCaptureRoute.STANDARD_SCO,
-            BluetoothAudioMode.IN_COMMUNICATION, InputPreprocessingPolicy.SYSTEM_DEFAULT, PcmGainMode.OFF)
+            BluetoothAudioMode.NORMAL, InputPreprocessingPolicy.SYSTEM_DEFAULT, PcmGainMode.OFF)
     }
 }

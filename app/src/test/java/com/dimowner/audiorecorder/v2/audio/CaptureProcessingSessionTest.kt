@@ -81,6 +81,30 @@ class CaptureProcessingSessionTest {
         }
     }
 
+    @Test fun `phone mode mismatch is rejected before native capture`() {
+        every { manager.mode } returns AudioManager.MODE_NORMAL
+        CaptureProcessingSession(recorder, AudioInput.Mic(AudioSource.VOICE_RECOGNITION.value,
+            audioMode = BluetoothAudioMode.IN_COMMUNICATION), 16000, 1, "Test", diagnostics, manager).use {
+            assertFalse(it.prepare())
+            assertTrue(diagnostics.state.value.session.contains("Requested Android audio mode"))
+        }
+    }
+
+    @Test fun `phone mode is verified at both PCM read boundaries`() {
+        for (changeAfterRead in listOf(true, false)) {
+            every { manager.mode } returns AudioManager.MODE_IN_COMMUNICATION
+            CaptureProcessingSession(recorder, AudioInput.Mic(AudioSource.VOICE_RECOGNITION.value,
+                audioMode = BluetoothAudioMode.IN_COMMUNICATION), 16000, 1, "Test", diagnostics, manager).use {
+                assertTrue(it.prepare())
+                val token = it.beginRead()
+                every { manager.mode } returns AudioManager.MODE_NORMAL
+                assertThrows(CaptureInputException::class.java) {
+                    if (changeAfterRead) it.acceptPcm(ByteArray(20), 20, token) else it.beginRead()
+                }
+            }
+        }
+    }
+
     private fun session(source: AudioSource) = CaptureProcessingSession(recorder, AudioInput.Mic(source.value),
         16000, 1, "Test", diagnostics, manager)
 }
