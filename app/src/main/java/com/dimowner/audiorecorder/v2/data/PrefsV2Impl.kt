@@ -72,6 +72,32 @@ class PrefsV2Impl @Inject internal constructor(@ApplicationContext context: Cont
     private val sharedPreferences: SharedPreferences =
         context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
 
+    init { migrateBluetoothSource() }
+
+    private fun migrateBluetoothSource() {
+        if (sharedPreferences.contains(PREF_KEY_BLUETOOTH_AUDIO_SOURCE)) return
+        // Snapshot the old shared source once. Subsequent phone/source edits must not leak into
+        // the Bluetooth profile. Playback capture is selected exclusively by the external source.
+        val oldSource = settingAudioSource
+        val legacy = BluetoothVoiceConfiguration(oldSource, bluetoothCaptureRoute,
+            readEnum(PREF_KEY_BLUETOOTH_AUDIO_MODE, BluetoothAudioMode.IN_COMMUNICATION),
+            inputPreprocessingPolicy, pcmGainMode)
+        val label = sharedPreferences.getString(PREF_KEY_BLUETOOTH_VOICE_ENHANCEMENT, null)
+        val oldDisabled = legacy == BluetoothVoiceConfiguration.STANDARD.copy(mode = BluetoothAudioMode.IN_COMMUNICATION) &&
+            (label == null || label == BluetoothVoiceEnhancement.DISABLED.name)
+        val hasLegacySettings = listOf(PREF_KEY_SETTING_AUDIO_SOURCE, PREF_KEY_BLUETOOTH_VOICE_ENHANCEMENT,
+            PREF_KEY_BLUETOOTH_CAPTURE_ROUTE, PREF_KEY_BLUETOOTH_AUDIO_MODE,
+            PREF_KEY_INPUT_PREPROCESSING_POLICY, PREF_KEY_PCM_GAIN_MODE).any(sharedPreferences::contains)
+        sharedPreferences.edit {
+            putInt(PREF_KEY_BLUETOOTH_AUDIO_SOURCE, oldSource.takeUnless { it.isSystemAudio }?.value ?: AudioSource.DEFAULT.value)
+            if (oldDisabled) putString(PREF_KEY_BLUETOOTH_AUDIO_MODE, BluetoothAudioMode.NORMAL.name)
+            else if (hasLegacySettings && !sharedPreferences.contains(PREF_KEY_BLUETOOTH_AUDIO_MODE)) {
+                // A custom setup could have relied on the previous implicit IN_COMMUNICATION.
+                putString(PREF_KEY_BLUETOOTH_AUDIO_MODE, legacy.mode.name)
+            }
+        }
+    }
+
     private val _isDarkThemeFlow = MutableStateFlow(
         sharedPreferences.getBoolean(PREF_KEY_IS_DARK_THEME, DefaultValues.IS_DARK_THEME)
     )
@@ -353,19 +379,33 @@ class PrefsV2Impl @Inject internal constructor(@ApplicationContext context: Cont
             DefaultValues.DefaultAudioSource.value
         ).let { AudioSource.fromValue(it) }
         set(value) {
-            val changed = value != settingAudioSource
             sharedPreferences.edit {
                 putInt(PREF_KEY_SETTING_AUDIO_SOURCE, value.value)
+            }
+        }
+
+    override var bluetoothAudioSource: AudioSource
+        get() = AudioSource.fromValue(sharedPreferences.getInt(PREF_KEY_BLUETOOTH_AUDIO_SOURCE, AudioSource.DEFAULT.value))
+            .takeUnless { it.isSystemAudio } ?: AudioSource.DEFAULT
+        set(value) {
+            require(!value.isSystemAudio) { "System playback is not a Bluetooth microphone source" }
+            val changed = value != bluetoothAudioSource
+            sharedPreferences.edit {
+                putInt(PREF_KEY_BLUETOOTH_AUDIO_SOURCE, value.value)
                 if (changed) putString(PREF_KEY_BLUETOOTH_VOICE_ENHANCEMENT, BluetoothVoiceEnhancement.CUSTOM.name)
             }
         }
+
+    override var applyOnlyToBluetoothMic: Boolean
+        get() = sharedPreferences.getBoolean(PREF_KEY_APPLY_ONLY_TO_BLUETOOTH_MIC, true)
+        set(value) { sharedPreferences.edit { putBoolean(PREF_KEY_APPLY_ONLY_TO_BLUETOOTH_MIC, value) } }
 
     override var bluetoothCaptureRoute: BluetoothCaptureRoute
         get() = readEnum(PREF_KEY_BLUETOOTH_CAPTURE_ROUTE, BluetoothCaptureRoute.STANDARD_SCO)
         set(value) = writeExperimentEnum(PREF_KEY_BLUETOOTH_CAPTURE_ROUTE, value, bluetoothCaptureRoute)
 
     override var bluetoothAudioMode: BluetoothAudioMode
-        get() = readEnum(PREF_KEY_BLUETOOTH_AUDIO_MODE, BluetoothAudioMode.IN_COMMUNICATION)
+        get() = readEnum(PREF_KEY_BLUETOOTH_AUDIO_MODE, BluetoothAudioMode.NORMAL)
         set(value) = writeExperimentEnum(PREF_KEY_BLUETOOTH_AUDIO_MODE, value, bluetoothAudioMode)
 
     override var inputPreprocessingPolicy: InputPreprocessingPolicy
@@ -378,7 +418,7 @@ class PrefsV2Impl @Inject internal constructor(@ApplicationContext context: Cont
 
     override var bluetoothVoiceEnhancement: BluetoothVoiceEnhancement
         get() {
-            val current = BluetoothVoiceConfiguration(settingAudioSource, bluetoothCaptureRoute,
+            val current = BluetoothVoiceConfiguration(bluetoothAudioSource, bluetoothCaptureRoute,
                 bluetoothAudioMode, inputPreprocessingPolicy, pcmGainMode)
             val inferred = BluetoothVoiceEnhancement.fromConfiguration(current)
             val stored = readEnum(PREF_KEY_BLUETOOTH_VOICE_ENHANCEMENT, inferred)
@@ -393,7 +433,7 @@ class PrefsV2Impl @Inject internal constructor(@ApplicationContext context: Cont
                 value.configuration?.let { configuration ->
                     // A single editor publishes all five choices together. Calling the individual
                     // setters here would expose intermediate combinations and mark them Custom.
-                    putInt(PREF_KEY_SETTING_AUDIO_SOURCE, configuration.source.value)
+                    putInt(PREF_KEY_BLUETOOTH_AUDIO_SOURCE, configuration.source.value)
                     putString(PREF_KEY_BLUETOOTH_CAPTURE_ROUTE, configuration.route.name)
                     putString(PREF_KEY_BLUETOOTH_AUDIO_MODE, configuration.mode.name)
                     putString(PREF_KEY_INPUT_PREPROCESSING_POLICY, configuration.preprocessing.name)
@@ -451,6 +491,8 @@ class PrefsV2Impl @Inject internal constructor(@ApplicationContext context: Cont
             remove(PREF_KEY_INPUT_PREPROCESSING_POLICY)
             remove(PREF_KEY_PCM_GAIN_MODE)
             remove(PREF_KEY_SETTING_AUDIO_SOURCE)
+            putInt(PREF_KEY_BLUETOOTH_AUDIO_SOURCE, AudioSource.DEFAULT.value)
+            remove(PREF_KEY_APPLY_ONLY_TO_BLUETOOTH_MIC)
             putString(
                 PREF_KEY_SETTING_RECORDING_FORMAT,
                 DefaultValues.DefaultRecordingFormat.value
@@ -473,6 +515,7 @@ class PrefsV2Impl @Inject internal constructor(@ApplicationContext context: Cont
     override fun fullPreferenceReset() {
         sharedPreferences.edit {
             clear()
+            putInt(PREF_KEY_BLUETOOTH_AUDIO_SOURCE, AudioSource.DEFAULT.value)
         }
     }
 
@@ -487,6 +530,8 @@ class PrefsV2Impl @Inject internal constructor(@ApplicationContext context: Cont
         private const val PREF_KEY_IS_DARK_THEME = "pref_is_dark_theme"
         private const val PREF_KEY_MAX_RECORDING_DURATION_MILLS = "pref_key_max_recording_duration_mills"
         private const val PREF_KEY_SETTING_AUDIO_SOURCE = "pref_key_setting_audio_source"
+        private const val PREF_KEY_BLUETOOTH_AUDIO_SOURCE = "pref_key_bluetooth_audio_source"
+        private const val PREF_KEY_APPLY_ONLY_TO_BLUETOOTH_MIC = "pref_key_apply_only_to_bluetooth_mic"
         private const val PREF_KEY_BLUETOOTH_CAPTURE_ROUTE = "pref_key_bluetooth_capture_route"
         private const val PREF_KEY_BLUETOOTH_AUDIO_MODE = "pref_key_bluetooth_audio_mode"
         private const val PREF_KEY_INPUT_PREPROCESSING_POLICY = "pref_key_input_preprocessing_policy"
