@@ -43,12 +43,14 @@ class BluetoothMicrophoneInstrumentedTest {
                 val diagnostics = CaptureDiagnostics()
                 session = CaptureProcessingSession(record, AudioInput.Mic(AudioSource.VOICE_RECOGNITION.value, policy, PcmGainMode.DB_PLUS_6),
                     rate, 1, "Instrumented microphone", diagnostics)
+                assertTrue(session.prepare())
                 record.startRecording()
                 session.started(record)
                 val pcm = ByteArray(size)
+                val readToken = session.beginRead()
                 val read = record.read(pcm, 0, pcm.size)
                 assertTrue("VOICE_RECOGNITION must produce PCM for $policy, result=$read", read > 0)
-                session.processInPlace(pcm, read)
+                assertTrue(session.acceptPcm(pcm, read, readToken))
                 val evidence = diagnostics.state.value.session
                 assertTrue(evidence.contains("NS: available="))
                 assertTrue(evidence.contains("AEC: available="))

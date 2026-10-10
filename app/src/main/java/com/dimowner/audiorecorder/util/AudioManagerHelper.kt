@@ -102,6 +102,9 @@ class AudioManagerHelper @Inject constructor(
     internal val isRouteReadyForRecording: Boolean get() = !bluetoothRequested ||
         routeController.state.value.phase == com.dimowner.audiorecorder.v2.audio.BluetoothRoutePhase.READY
 
+    internal fun bluetoothInputForRecording(): com.dimowner.audiorecorder.v2.audio.BluetoothInputSelection? =
+        if (ownsBluetoothRecordingRoute) routeController.inputSelection() else null
+
     private var selectedBluetoothDevice: BluetoothDeviceInfo? = null
 
     private val audioDeviceCallback = object : AudioDeviceCallback() {

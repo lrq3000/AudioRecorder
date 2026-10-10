@@ -302,6 +302,10 @@ class AudioRecordingService : Service() {
                 stopPlaybackBeforeRecording()
                 if (prefs.settingAudioSource.isSystemAudio &&
                     (!isSystemAudioCaptureSupported() || !intent.hasProjectionConsent())) {
+                    // Satisfy startForegroundService even when a UI binding keeps this service
+                    // alive after stopSelf(). This posts/removes a notification only: no microphone
+                    // recorder is opened and the selected source is never substituted.
+                    startForegroundWithNotification(withMediaProjection = false)
                     rejectCaptureConfiguration("System-audio capture is unavailable or consent is missing. Grant capture consent again; microphone fallback is not allowed.")
                     return START_NOT_STICKY
                 }
@@ -632,7 +636,7 @@ class AudioRecordingService : Service() {
             stopForegroundService(saved = true)
             return null
         }
-        val audioInput = resolveAudioInput().getOrElse {
+        var audioInput = resolveAudioInput().getOrElse {
             rejectCaptureConfiguration(it.message ?: "Selected audio source is unavailable.")
             return null
         }
@@ -695,6 +699,18 @@ class AudioRecordingService : Service() {
             emitEvent(AudioRecordingServiceEvent.ShowErrorSnack("Bluetooth route failed. See current diagnostics in Settings."))
             stopForegroundService()
             return null
+        }
+        val micInput = audioInput as? AudioInput.Mic
+        if (micInput != null) {
+            try {
+                val inputSelection = withContext(kotlinx.coroutines.Dispatchers.Main.immediate) {
+                    audioManagerHelper.bluetoothInputForRecording()
+                }
+                audioInput = micInput.copy(bluetoothInput = inputSelection)
+            } catch (e: IllegalStateException) {
+                rejectCaptureConfiguration(e.message ?: "Selected Bluetooth input is unavailable.")
+                return null
+            }
         }
         if (audioInput is AudioInput.SystemPlayback) {
             withContext(kotlinx.coroutines.Dispatchers.Main.immediate) { audioManagerHelper.finishRecordingRoute() }
@@ -995,6 +1011,8 @@ class AudioRecordingService : Service() {
                         amps = recordingFullDataBuffer.downsampleToIntArray(),
                     )
                     val success = recordsDataSource.updateRecord(recordUpdated)
+                    captureDiagnostics.noteSession("Saved-file metadata: ${info.sampleRate} Hz, ${info.channelCount} channel(s), ${info.bitrate} bps. " +
+                        "Requested file settings: ${record.sampleRate} Hz, ${record.channelCount} channel(s), ${record.bitrate} bps (bitrate applies only to configurable encoders).")
                     saved = success
                     _recordingState.value = _recordingState.value.copy(
                         recordingState = RecordingState.STOPPED,
