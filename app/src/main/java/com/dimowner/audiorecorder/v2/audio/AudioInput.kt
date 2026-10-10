@@ -1,6 +1,7 @@
 package com.dimowner.audiorecorder.v2.audio
 
 import android.media.projection.MediaProjection
+import com.dimowner.audiorecorder.v2.data.model.BluetoothAudioMode
 import com.dimowner.audiorecorder.v2.data.model.InputPreprocessingPolicy
 import com.dimowner.audiorecorder.v2.data.model.PcmGainMode
 
@@ -22,6 +23,8 @@ sealed interface AudioInput {
         val preprocessing: InputPreprocessingPolicy = InputPreprocessingPolicy.SYSTEM_DEFAULT,
         val gain: PcmGainMode = PcmGainMode.OFF,
         val bluetoothInput: BluetoothInputSelection? = null,
+        val audioMode: BluetoothAudioMode? = null,
+        val requestedSettings: MicrophoneCaptureSettings? = null,
     ) : AudioInput
 
     /**

@@ -289,6 +289,7 @@ class AudioRecordingService : Service() {
         subscribeRecorderEvents()
         when (intent?.action) {
             ACTION_START_RECORDING -> {
+                audioRecorderDelegate.isCaptureSessionActive = true
                 recordingStartGuard.begin()
                 currentRecordingStartedFromFloatingOverlay = intent.getBooleanExtra(
                     EXTRA_STARTED_FROM_FLOATING_OVERLAY,
@@ -313,6 +314,7 @@ class AudioRecordingService : Service() {
                 // it can only be created once the service is foreground with the mediaProjection
                 // type (enforced from Android 14), hence this ordering.
                 val useSystemAudio = isSystemAudioSelected() && intent.hasProjectionConsent()
+                if (useSystemAudio) audioManagerHelper.prepareSystemPlayback()
                 // Must call startForeground() synchronously before any async work
                 // to satisfy the foreground service contract and avoid ANR.
                 startForegroundWithNotification(withMediaProjection = useSystemAudio)
@@ -338,6 +340,7 @@ class AudioRecordingService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        audioRecorderDelegate.isCaptureSessionActive = false
         audioManagerHelper.finishRecordingRoute()
         releaseMediaProjection()
         subscriptionJob?.cancel()
@@ -613,8 +616,8 @@ class AudioRecordingService : Service() {
      * here again with no new intent; it reuses the same live projection, which stays valid until
      * the service releases it.
      */
-    private fun resolveAudioInput(): Result<AudioInput> = CaptureConfiguration.resolveInput(
-        prefs.settingAudioSource, prefs.inputPreprocessingPolicy, prefs.pcmGainMode,
+    private fun resolveAudioInput(settings: MicrophoneCaptureSettings, useBluetooth: Boolean): Result<AudioInput> = CaptureConfiguration.resolveInput(
+        prefs.settingAudioSource, settings, useBluetooth,
         isSystemAudioCaptureSupported(), mediaProjection,
     )
 
@@ -636,7 +639,9 @@ class AudioRecordingService : Service() {
             stopForegroundService(saved = true)
             return null
         }
-        var audioInput = resolveAudioInput().getOrElse {
+        val microphoneSettings = MicrophoneCaptureSettings.from(prefs)
+        val useBluetooth = audioManagerHelper.useBluetoothForRecording
+        var audioInput = resolveAudioInput(microphoneSettings, useBluetooth).getOrElse {
             rejectCaptureConfiguration(it.message ?: "Selected audio source is unavailable.")
             return null
         }
@@ -693,10 +698,10 @@ class AudioRecordingService : Service() {
             "\nRequested: $sampleRate Hz, $channelCount channel(s); format=${format.value}")
         val routeReady = if (audioInput is AudioInput.Mic) {
             waitingForBluetooth = true
-            try { audioManagerHelper.prepareRecording() } finally { waitingForBluetooth = false }
+            try { audioManagerHelper.prepareRecording(microphoneSettings, useBluetooth) } finally { waitingForBluetooth = false }
         } else true
         if (!recordingStartGuard.mayStart(routeReady)) {
-            emitEvent(AudioRecordingServiceEvent.ShowErrorSnack("Bluetooth route failed. See current diagnostics in Settings."))
+            emitEvent(AudioRecordingServiceEvent.ShowErrorSnack("Microphone route or audio mode failed. See current diagnostics in Settings."))
             stopForegroundService()
             return null
         }
@@ -713,8 +718,7 @@ class AudioRecordingService : Service() {
             }
         }
         if (audioInput is AudioInput.SystemPlayback) {
-            withContext(kotlinx.coroutines.Dispatchers.Main.immediate) { audioManagerHelper.finishRecordingRoute() }
-            captureDiagnostics.route("System playback capture: Bluetooth microphone routing and processing not applied.")
+            withContext(kotlinx.coroutines.Dispatchers.Main.immediate) { audioManagerHelper.prepareSystemPlayback() }
         }
         if (format == RecordingFormat.ThreeGp) {
             captureDiagnostics.session("Backend: 3GP / MediaRecorder. System-managed effects; gain OFF; audio session unavailable.\n" +
@@ -1113,6 +1117,7 @@ class AudioRecordingService : Service() {
     }
 
     private fun stopForegroundService(saved: Boolean = false) {
+        audioRecorderDelegate.isCaptureSessionActive = false
         isStartingRecording = false
         mainHandler.post { audioManagerHelper.finishRecordingRoute() }
         releaseMediaProjection()

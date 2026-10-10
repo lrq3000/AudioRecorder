@@ -43,7 +43,7 @@ internal class BluetoothCaptureController(
     private val mutable = MutableStateFlow(BluetoothRouteState())
     val state = mutable.asStateFlow()
     private var route = BluetoothCaptureRoute.STANDARD_SCO
-    private var mode = BluetoothAudioMode.IN_COMMUNICATION
+    private var mode = BluetoothAudioMode.NORMAL
     private var targetId: Int? = null
     private var targetAddress: String? = null
     private var targetDeviceType: Int? = null

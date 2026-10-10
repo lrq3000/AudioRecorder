@@ -31,6 +31,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import com.dimowner.audiorecorder.v2.audio.BluetoothCaptureController
 import com.dimowner.audiorecorder.v2.audio.CaptureDiagnostics
+import com.dimowner.audiorecorder.v2.audio.MicrophoneCaptureSettings
+import com.dimowner.audiorecorder.v2.data.model.BluetoothAudioMode
+import com.dimowner.audiorecorder.v2.data.model.BluetoothCaptureRoute
 import com.dimowner.audiorecorder.v2.data.PrefsV2
 import com.dimowner.audiorecorder.v2.data.PrefsV2Impl
 import kotlinx.coroutines.Dispatchers
@@ -93,14 +96,21 @@ class AudioManagerHelper @Inject constructor(
     // The switch expresses intent; readiness is a separate observed state owned through capture.
     @Volatile private var bluetoothRequested = false
     @Volatile private var recordingRouteOwned = false
+    @Volatile private var recordingUsesBluetooth = false
+    private var previousMicrophoneMode: Int? = null
+    private var microphoneMode: BluetoothAudioMode? = null
     private val routeController by lazy {
         BluetoothCaptureController(context, diagnostics) { updateBluetoothDeviceState() }
     }
     internal val routeState get() = routeController.state
     // Unlike recorder amplitude flags, this covers preparation and native-start transitions.
-    internal val ownsBluetoothRecordingRoute: Boolean get() = recordingRouteOwned && bluetoothRequested
-    internal val isRouteReadyForRecording: Boolean get() = !bluetoothRequested ||
-        routeController.state.value.phase == com.dimowner.audiorecorder.v2.audio.BluetoothRoutePhase.READY
+    internal val ownsBluetoothRecordingRoute: Boolean get() = recordingRouteOwned && recordingUsesBluetooth
+    internal val useBluetoothForRecording: Boolean get() = bluetoothRequested ||
+        (prefs.alwaysUseBluetoothMic && hasBluetoothAudioInputDevice())
+    internal val isRouteReadyForRecording: Boolean get() =
+        if (if (recordingRouteOwned) recordingUsesBluetooth else bluetoothRequested)
+            routeController.state.value.phase == com.dimowner.audiorecorder.v2.audio.BluetoothRoutePhase.READY
+        else microphoneMode?.let { audioManager.mode == it.value } ?: true
 
     internal fun bluetoothInputForRecording(): com.dimowner.audiorecorder.v2.audio.BluetoothInputSelection? =
         if (ownsBluetoothRecordingRoute) routeController.inputSelection() else null
@@ -160,35 +170,75 @@ class AudioManagerHelper @Inject constructor(
     suspend fun enableBluetoothMic(enable: Boolean) {
         Timber.d("enableBluetoothMic: $enable")
         withContext(Dispatchers.Main.immediate) {
+            if (recordingRouteOwned) return@withContext
             bluetoothRequested = enable
             if (enable) requestRoute() else disableBluetoothRouting()
             updateBluetoothDeviceState()
         }
     }
 
-    private fun requestRoute() {
+    private fun requestRoute(route: BluetoothCaptureRoute = prefs.bluetoothCaptureRoute,
+        mode: BluetoothAudioMode = prefs.bluetoothAudioMode) {
         val device = selectedBluetoothDevice?.audioDeviceInfo ?: getAvailableCommunicationDevices().firstOrNull()
-        routeController.start(prefs.bluetoothCaptureRoute, prefs.bluetoothAudioMode, device)
+        routeController.start(route, mode, device)
     }
 
     /** Service preflight: never create an experiment file before Bluetooth audio is ready. */
-    internal suspend fun prepareRecording(): Boolean = withContext(Dispatchers.Main.immediate) {
+    internal suspend fun prepareRecording(settings: MicrophoneCaptureSettings = MicrophoneCaptureSettings.from(prefs),
+        useBluetooth: Boolean = useBluetoothForRecording): Boolean = withContext(Dispatchers.Main.immediate) {
         recordingRouteOwned = true
-        if (!bluetoothRequested && prefs.alwaysUseBluetoothMic && hasBluetoothAudioInputDevice()) bluetoothRequested = true
-        if (!bluetoothRequested) {
-            diagnostics.route("Bluetooth microphone switch is OFF; recording the system-selected microphone.\n" +
-                "Selected experiment: ${prefs.bluetoothCaptureRoute}, ${prefs.bluetoothAudioMode} (not applied)")
-            true
+        recordingUsesBluetooth = useBluetooth
+        if (!useBluetooth) {
+            // A preview may have been enabled after the service froze its non-Bluetooth intent.
+            // Release it before saving the mode to restore; otherwise its communication mode
+            // becomes this session's baseline and its input can leak into phone capture.
+            disableBluetoothRouting()
+            if (settings.onlyBluetooth) {
+                diagnostics.route("Non-Bluetooth microphone: Bluetooth-only scope; Android audio mode, preprocessing and software gain overrides skipped.")
+                true
+            } else try {
+                // Mode is global Android policy, so own/restore it even with no Bluetooth route.
+                if (previousMicrophoneMode == null) previousMicrophoneMode = audioManager.mode
+                microphoneMode = settings.mode
+                audioManager.mode = settings.mode.value
+                val ready = audioManager.mode == settings.mode.value
+                diagnostics.route("Non-Bluetooth microphone: all-microphone scope.\nRequested Android audio mode: ${settings.mode}; actual mode: ${audioManager.mode}" +
+                    if (ready) "\nMode applied; Bluetooth routing not requested." else "\nMode rejected; capture not started.")
+                if (!ready) restoreMicrophoneMode()
+                ready
+            } catch (e: Exception) {
+                diagnostics.route("Android audio mode request failed: ${e.message}")
+                restoreMicrophoneMode()
+                false
+            }
         } else {
-            requestRoute()
+            bluetoothRequested = true
+            requestRoute(settings.route, settings.mode)
             routeController.awaitReady()
         }
+    }
+
+    /** Main-thread system-capture ownership: release previews and block new microphone overrides. */
+    internal fun prepareSystemPlayback() {
+        recordingRouteOwned = true
+        recordingUsesBluetooth = false
+        disableBluetoothRouting()
+        restoreMicrophoneMode()
+        diagnostics.route("System playback capture: Bluetooth microphone routing and processing not applied.")
     }
 
     /** Keep the switch intent for the next comparison, but release this session's audio route. */
     internal fun finishRecordingRoute() {
         recordingRouteOwned = false
+        recordingUsesBluetooth = false
         disableBluetoothRouting()
+        restoreMicrophoneMode()
+    }
+
+    private fun restoreMicrophoneMode() {
+        previousMicrophoneMode?.let { original -> runCatching { audioManager.mode = original }.onFailure { Timber.w(it) } }
+        previousMicrophoneMode = null
+        microphoneMode = null
     }
 
     /**
@@ -199,6 +249,7 @@ class AudioManagerHelper @Inject constructor(
      * @param device The BluetoothDeviceInfo to select, or null to clear selection
      */
     fun selectBluetoothDevice(device: BluetoothDeviceInfo?) {
+        if (recordingRouteOwned) return
         Timber.d("selectBluetoothDevice: ${device?.productName}")
         selectedBluetoothDevice = device
         // If routing is already enabled, switch to the newly selected device immediately
