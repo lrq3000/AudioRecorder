@@ -17,6 +17,8 @@ package com.dimowner.audiorecorder.v2.audio
 
 import android.content.Context
 import android.media.MediaRecorder
+import android.media.AudioManager
+import android.media.AudioRouting
 import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
@@ -67,6 +69,7 @@ abstract class MediaRecorderBase(
     // Written from the caller's background thread (start/stop) and read from the sampling
     // thread by recordingTimeUpdateRunnable, so all of them have to be volatile.
     @Volatile private var mediaRecorder: MediaRecorder? = null
+    @Volatile private var inputRouting: InputRoutingGuard? = null
     private var recordFile: File? = null
 
     // updateTime is written by the sampling thread and read by the timerProgress thread;
@@ -149,6 +152,18 @@ abstract class MediaRecorderBase(
             emitEvent(RecorderEvent.OnError(RecorderInitException()))
             return false
         }
+        if (micInput.bluetoothInput != null && Build.VERSION.SDK_INT < 28) {
+            diagnostics.session("Verified Bluetooth input on this MediaRecorder backend requires Android 9 or newer. Select WAV or direct M4A instead.")
+            emitEvent(RecorderEvent.OnError(RecorderInitException()))
+            return false
+        }
+        if (micInput.audioSource == com.dimowner.audiorecorder.v2.data.model.AudioSource.UNPROCESSED.value &&
+            (applicationContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager)
+                .getProperty(AudioManager.PROPERTY_SUPPORT_AUDIO_SOURCE_UNPROCESSED) != "true") {
+            diagnostics.session("Android does not advertise UNPROCESSED support; select another source explicitly.")
+            emitEvent(RecorderEvent.OnError(RecorderInitException()))
+            return false
+        }
         // _isRecording only flips to true once the first valid amplitude arrives, so it is still
         // false while the recorder is starting up. Checking the recorder instance as well closes
         // that window: without it a second start would overwrite (and then release) a live
@@ -186,8 +201,17 @@ abstract class MediaRecorderBase(
                     setOnErrorListener { _, what, extra -> handleRecorderError(what, extra) }
                     setOutputFile(outputFile.absolutePath)
                 }
+                if (micInput.bluetoothInput != null && Build.VERSION.SDK_INT >= 28) {
+                    val manager = applicationContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                    inputRouting = InputRoutingGuard(recorder as AudioRouting, manager, micInput.bluetoothInput,
+                        { evidence -> diagnostics.session("Backend: ${recordingLogTag}MediaRecorder\n" +
+                            CaptureProcessingSession.describeInput(micInput) + "\n" + evidence) })
+                    inputRouting?.prepare()
+                }
                 recorder.prepare()
                 recorder.start()
+                inputRouting?.started()
+                inputRouting?.accept(allowWait = false)
                 _isPaused = false
                 updateTime = SystemClock.elapsedRealtime()
                 startSamplingThread()
@@ -197,6 +221,7 @@ abstract class MediaRecorderBase(
                 true
             } catch (e: IOException) {
                 Timber.e(e, "prepare() failed")
+                diagnostics.session("MediaRecorder configuration rejected: ${e.message}")
                 releaseRecorder()
                 emitEvent(RecorderEvent.OnError(RecorderInitException()))
                 false
@@ -292,6 +317,8 @@ abstract class MediaRecorderBase(
         // action racing the stop button, or a max-duration tick landing on top of either) finds
         // no recorder and cannot start a second teardown of the same one.
         mediaRecorder = null
+        inputRouting?.close()
+        inputRouting = null
 
         stopRecordingTimer()
         stopRecordingTimerBuffered()
@@ -426,7 +453,12 @@ abstract class MediaRecorderBase(
                 // exception there takes down the process. Give up on the loop instead - the
                 // next start/resume reschedules it.
                 val amplitude = try {
+                    inputRouting?.accept(allowWait = false)
                     currentRecorder.maxAmplitude
+                } catch (e: CaptureInputException) {
+                    Timber.e(e, "Capture input changed; stopping instead of recording another microphone")
+                    handleRecorderError(MediaRecorder.MEDIA_RECORDER_ERROR_UNKNOWN, 0)
+                    return@Runnable
                 } catch (e: RuntimeException) {
                     Timber.e(e, "Error reading amplitude, stopping progress updates")
                     return@Runnable
@@ -454,6 +486,8 @@ abstract class MediaRecorderBase(
      * be mid-read when we release, which is why the amplitude read is guarded as well.
      */
     private fun releaseRecorder() {
+        inputRouting?.close()
+        inputRouting = null
         val recorder = mediaRecorder
         mediaRecorder = null
         releaseRecorder(recorder)

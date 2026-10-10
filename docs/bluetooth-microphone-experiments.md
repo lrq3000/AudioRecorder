@@ -64,6 +64,16 @@ current app process; settings themselves are persisted. Reopening the process st
 diagnostic evidence. A successful routing request is not readiness: legacy SCO/HFP must
 report connected audio, with an eight-second timeout and explicit failure.
 
+After the link is connected, the selected headset is matched to an actual Android input port.
+The recorder requests that port explicitly and checks the observed input and audio mode.
+AudioRecord-backed paths allow up to 1.5 seconds to confirm the requested input/mode, checking
+before and after each read. Unverified/transition buffers are discarded, and a full client-buffer
+capacity is drained after verification to exclude previously queued audio. Routing changes are monitored
+during capture, and a mismatch stops capture rather than silently continuing on the phone mic.
+MediaRecorder cannot discard startup PCM, so Bluetooth recording there requires an immediate
+verified input on Android 9+; use WAV/direct M4A on older versions. Diagnostics also append
+saved-file metadata so platform encoding outcomes can be compared with the request.
+
 The route selector is literal: STANDARD_SCO requests `startBluetoothSco()`,
 HFP_VOICE_RECOGNITION requests `BluetoothHeadset.startVoiceRecognition()`, and
 COMMUNICATION_DEVICE explicitly requests `setCommunicationDevice()` (Android 12+).
@@ -76,7 +86,8 @@ falls back to SCO. With multiple HFP headsets and no unambiguous device match, d
 the others. Legacy standard SCO device choice remains controlled by Android.
 
 The NS/AEC/AGC controls report only Java audio-effect state. They cannot establish whether
-all headset, HAL, or vendor DSP is bypassed. UNPROCESSED may still fall back on a device.
+all headset, HAL, or vendor DSP is bypassed. UNPROCESSED is rejected if Android does not
+advertise support; even an advertised capability is not proof that all vendor DSP is absent.
 SYSTEM_DEFAULT leaves the effect enabled states untouched.
 
 3GP and M4A's MediaRecorder fallback do not expose PCM or these input effect controls.
@@ -134,3 +145,12 @@ the HFP selection across process restart and app update, Custom expand/collapse,
 dropdown arrows, and diagnostics remaining accessible with the controls collapsed. Live
 recorder-state guards also prevent source edits or Reset from changing the preset if recording
 starts through the floating button after Settings has already opened.
+
+### Selection-fidelity follow-up
+
+The literal-routing and capture-validation update passes 593 unit tests. All eight audio
+instrumented tests pass on an isolated Android 10 emulator, including explicit AAC bitrate
+rejection, recording/stop/recovery, effect inspection, and rejected system-audio starts while
+the service remains bound. The bound-service foreground-start regression also passes on an
+Android 14 emulator. Physical Bluetooth headset behavior still requires device testing;
+the tests validate the requests and observable input/mode checks, not vendor DSP internals.

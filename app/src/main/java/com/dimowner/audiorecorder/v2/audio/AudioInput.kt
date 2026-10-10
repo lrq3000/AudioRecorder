@@ -21,6 +21,7 @@ sealed interface AudioInput {
         val audioSource: Int,
         val preprocessing: InputPreprocessingPolicy = InputPreprocessingPolicy.SYSTEM_DEFAULT,
         val gain: PcmGainMode = PcmGainMode.OFF,
+        val bluetoothInput: BluetoothInputSelection? = null,
     ) : AudioInput
 
     /**

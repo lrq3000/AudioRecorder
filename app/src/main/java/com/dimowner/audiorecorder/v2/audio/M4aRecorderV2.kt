@@ -136,7 +136,7 @@ class M4aRecorderV2 @Inject constructor(
         }
         diagnostics.session("M4A fallback to MediaRecorder: selected system-managed preprocessing and gain OFF preserved.\n" +
             CaptureProcessingSession.describeInput(params.audioInput) +
-            "\nRequested: ${params.sampleRate} Hz, ${params.channelCount} channel(s). Audio session unavailable.")
+            "\nRequested: ${params.sampleRate} Hz, ${params.channelCount} channel(s), target ${params.bitrate} bps. Audio session unavailable.")
         active = mediaRecorder
         if (!resetOutputFile(params.outputFile)) {
             emitEvent(RecorderEvent.OnError(CantCreateFileException()))

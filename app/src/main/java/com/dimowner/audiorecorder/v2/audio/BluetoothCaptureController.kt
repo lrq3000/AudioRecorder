@@ -45,6 +45,8 @@ internal class BluetoothCaptureController(
     private var route = BluetoothCaptureRoute.STANDARD_SCO
     private var mode = BluetoothAudioMode.IN_COMMUNICATION
     private var targetId: Int? = null
+    private var targetAddress: String? = null
+    private var targetDeviceType: Int? = null
     private var previousMode: Int? = null
     private var generation = 0
     private var receiverRegistered = false
@@ -90,6 +92,8 @@ internal class BluetoothCaptureController(
         route = requestedRoute
         mode = requestedMode
         targetId = device?.id
+        targetAddress = if (Build.VERSION.SDK_INT >= 28) device?.address else null
+        targetDeviceType = device?.type
         deviceName = device?.productName?.toString()
         voiceRequest = null
         val attempt = generation
@@ -137,6 +141,7 @@ internal class BluetoothCaptureController(
                             }
                             if (selected == null) { fail(if (devices.isEmpty()) "No connected HFP headset" else "Multiple HFP headsets; disconnect the others to select unambiguously"); return }
                             headset = selected
+                            targetAddress = selected.address
                             deviceName = selected.name ?: deviceName
                             voiceRequest = hfp.startVoiceRecognition(selected)
                             if (voiceRequest != true) { fail("startVoiceRecognition returned false; no fallback"); return }
@@ -190,6 +195,22 @@ internal class BluetoothCaptureController(
 
     fun inputDisconnected() {
         if (mutable.value.phase == BluetoothRoutePhase.READY) fail("Bluetooth input device disconnected; no fallback")
+    }
+
+    /** Resolve the input port, not the output port returned by availableCommunicationDevices. */
+    fun inputSelection(): BluetoothInputSelection {
+        check(mutable.value.phase == BluetoothRoutePhase.READY) { "Bluetooth link is not ready for capture." }
+        val type = if (route == BluetoothCaptureRoute.COMMUNICATION_DEVICE) targetDeviceType
+            else AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+        val inputs = manager.getDevices(AudioManager.GET_DEVICES_INPUTS).filter { it.isSource && it.type == type }
+        val address = targetAddress?.takeIf { it.isNotBlank() }
+        val byId = inputs.firstOrNull { it.id == targetId &&
+            (address == null || Build.VERSION.SDK_INT < 28 || it.address.isBlank() || it.address.equals(address, true)) }
+        val byAddress = if (address != null && Build.VERSION.SDK_INT >= 28)
+            inputs.filter { it.address.equals(address, true) }.singleOrNull() else null
+        val input = byId ?: byAddress
+        checkNotNull(input) { "Android did not expose an unambiguous input port for selected Bluetooth device ${deviceName ?: "unknown"}. No microphone substitution." }
+        return BluetoothInputSelection(input, mode)
     }
 
     private fun publish(phase: BluetoothRoutePhase, detail: String) {

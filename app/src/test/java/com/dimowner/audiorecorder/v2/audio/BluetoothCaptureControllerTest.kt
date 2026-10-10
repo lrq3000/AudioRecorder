@@ -169,4 +169,35 @@ class BluetoothCaptureControllerTest {
         assertEquals(BluetoothRoutePhase.FAILED, controller.state.value.phase)
         assertTrue(controller.state.value.message.contains("mode"))
     }
+
+    @Test @Config(sdk = [31])
+    fun `communication output is matched to its input port instead of recording a phone mic`() {
+        every { input.id } returns 10
+        every { input.type } returns AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+        every { input.isSource } returns false
+        val capture = mockk<AudioDeviceInfo>(relaxed = true)
+        every { capture.id } returns 11
+        every { capture.type } returns AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+        every { capture.isSource } returns true
+        every { capture.address } returns "00:11:22:33:44:55"
+        every { manager.getDevices(AudioManager.GET_DEVICES_INPUTS) } returns arrayOf(capture)
+        every { manager.setCommunicationDevice(input) } returns true
+        every { manager.communicationDevice } returns input
+        controller.start(BluetoothCaptureRoute.COMMUNICATION_DEVICE, BluetoothAudioMode.NORMAL, input)
+        assertEquals(capture, controller.inputSelection().device)
+        assertEquals(BluetoothAudioMode.NORMAL, controller.inputSelection().mode)
+        controller.stop()
+    }
+
+    @Test fun `a connected SCO link without an exposed Bluetooth input cannot select the phone`() {
+        val phone = mockk<AudioDeviceInfo>(relaxed = true)
+        every { phone.isSource } returns true
+        every { phone.type } returns AudioDeviceInfo.TYPE_BUILTIN_MIC
+        every { manager.getDevices(AudioManager.GET_DEVICES_INPUTS) } returns arrayOf(phone)
+        controller.start(BluetoothCaptureRoute.STANDARD_SCO, BluetoothAudioMode.NORMAL, input)
+        context.sendBroadcast(Intent(AudioManager.ACTION_SCO_AUDIO_STATE_UPDATED).putExtra(AudioManager.EXTRA_SCO_AUDIO_STATE, AudioManager.SCO_AUDIO_STATE_CONNECTED))
+        shadowOf(Looper.getMainLooper()).idle()
+        assertThrows(IllegalStateException::class.java) { controller.inputSelection() }
+        controller.stop()
+    }
 }

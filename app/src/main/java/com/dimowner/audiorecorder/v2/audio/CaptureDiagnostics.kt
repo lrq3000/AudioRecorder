@@ -22,6 +22,11 @@ class CaptureDiagnostics @Inject constructor() {
         mutable.update { it.copy(session = message) }
         Timber.i("Capture experiment: %s", message)
     }
+
+    fun noteSession(message: String) {
+        mutable.update { it.copy(session = it.session + "\n" + message) }
+        Timber.i("Capture experiment: %s", message)
+    }
 }
 
 data class CaptureDiagnosticState(
